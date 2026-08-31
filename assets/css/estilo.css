@@ -1,0 +1,1319 @@
+/* ==========================================================================
+   ALAFCELL ASSISTEC — sistema visual
+   Conceito: SINAL DE VIDA. Aparelho quebrado é aparelho apagado; a loja
+   devolve o sinal. Por isso a superfície é escura e o vermelho só aparece
+   onde existe energia: ação, estado, movimento. Vermelho decorativo não
+   entra — se ele estiver em tudo, ele não avisa mais nada.
+
+   Toda a paleta foi MEDIDA no logotipo em PDF, não escolhida de fora:
+   o vermelho dominante do arquivo é #E50000 (pico em #FF0000), e o cromo
+   das letras fica entre #DBDCDC e #ECEDED. O preto do logotipo é puro.
+   ========================================================================== */
+
+:root {
+  /* ---------------------------------------------------------- superfícies
+     O preto puro fica reservado ao logotipo e aos vazios profundos. A página
+     usa GRAFITE: preto puro em tela grande vibra na borda dos textos e some
+     com a profundidade — não dá para empilhar cartão sobre cartão. */
+  --preto:        #000000;
+  --grafite:      #0B0C0E;   /* fundo da página */
+  --grafite-2:    #15171B;   /* cartão, cabeçalho */
+  --grafite-3:    #1E2126;   /* cartão sobre cartão, campo de formulário */
+  --linha:        #2A2E35;   /* divisória — some no fundo, aparece no cartão */
+  --linha-viva:   #3A404A;   /* borda de foco/hover */
+
+  /* -------------------------------------------------------------- vermelho
+     #E50000 sobre grafite dá 4,04:1 — passa para peça GRANDE e componente de
+     interface (mínimo 3:1), reprova para texto corrido (exige 4,5:1). Então
+     o vermelho do logotipo é cor de SUPERFÍCIE e de título grande; quando
+     vermelho precisa virar texto pequeno, sobe para --vermelho-luz (5,05:1).
+     Texto branco sobre o vermelho cheio dá 4,85:1 — o botão é seguro. */
+  --vermelho:     #E50000;   /* a cor da marca */
+  --vermelho-luz: #FF1A1A;   /* vermelho quando é TEXTO sobre escuro */
+  --vermelho-alto:#FF4D4D;   /* estado ativo, dado em destaque */
+  --vermelho-fundo:#3A0000;  /* faixa/realce sem gritar */
+  --brasa:        rgba(229, 0, 0, .38);  /* brilho, sombra colorida */
+
+  /* ----------------------------------------------------------------- cromo
+     O logotipo é metálico. O metal aqui não é textura, é COMPORTAMENTO: uma
+     borda que pega luz no topo e apaga embaixo. Imagem de metal envelhece;
+     gradiente de 1px, não. */
+  --cromo:        #DBDCDC;   /* medido no logotipo */
+  --cromo-claro:  #ECEDED;
+  --branco:       #FFFFFF;
+  --tinta:        #E8EAEC;   /* texto corrido — 16,9:1 */
+  --tinta-2:      #A8ADB4;   /* texto de apoio — 8,67:1 */
+  /* A legenda é o tom mais fraco do sistema, e ele foi escolhido pelo PIOR
+     caso, não pelo fundo da página: sobre o grafite ela teria folga, mas ela
+     também aparece dentro de cartão (#15171B) e de campo (#1E2126). Medida
+     ali, dá 4,77:1 — passa o AA na superfície mais clara em que é usada. */
+  --tinta-3:      #868C95;   /* legenda, meta — 4,77:1 no pior fundo */
+
+  --metal-borda:  linear-gradient(180deg, #454B55 0%, #23272E 45%, #14171B 100%);
+  --metal-face:   linear-gradient(168deg, #1B1E23 0%, #131519 60%, #0F1114 100%);
+
+  /* ------------------------------------------------------------- tipografia
+     Saira nos títulos: contadores quadrados e terminais retos, a mesma
+     geometria dos cortes do logotipo — sem imitar o letreiro, que é único.
+     Inter no corpo: nenhuma condensada aguenta texto pequeno sobre escuro.
+     JetBrains Mono no DADO (preço, prazo, código da ordem): número técnico
+     alinha em coluna e é o que diferencia orçamento de conversa. */
+  --fonte-titulo: "Saira", "Arial Narrow", system-ui, sans-serif;
+  --fonte-corpo:  "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fonte-dado:   "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  /* Escala fluida: nada de breakpoint para tamanho de letra. O mínimo é o
+     legível no 320px, o máximo é o confortável no 4K. */
+  --t-mini:   clamp(.70rem, .68rem + .10vw, .78rem);
+  --t-meta:   clamp(.80rem, .77rem + .14vw, .88rem);
+  --t-corpo:  clamp(.98rem, .94rem + .18vw, 1.08rem);
+  --t-guia:   clamp(1.08rem, 1.00rem + .40vw, 1.30rem);
+  --t-h3:     clamp(1.15rem, 1.05rem + .50vw, 1.45rem);
+  --t-h2:     clamp(1.65rem, 1.30rem + 1.70vw, 2.70rem);
+  --t-h1:     clamp(2.30rem, 1.60rem + 3.40vw, 4.60rem);
+  --t-display: clamp(3.00rem, 1.80rem + 6.00vw, 7.00rem);
+
+  --peso-corpo: 400;
+  --peso-medio: 500;
+  --peso-forte: 700;
+  --peso-black: 800;
+
+  /* ------------------------------------------------------------------ grade */
+  --largura:      1240px;
+  --largura-fina: 760px;
+  --gutter:       clamp(1.15rem, .70rem + 2.10vw, 2.60rem);
+  --secao-y:      clamp(3.60rem, 2.20rem + 5.50vw, 7.20rem);
+
+  --raio-p:  6px;
+  --raio:    12px;
+  --raio-g:  20px;
+
+  /* ---------------------------------------------------------------- sombras
+     Sombra em fundo escuro não escurece — ela AFASTA. Por isso a peça em
+     destaque ganha brilho vermelho em vez de sombra preta: preto sobre preto
+     não se vê. */
+  --sombra:      0 18px 40px -22px rgba(0,0,0,.9);
+  --sombra-alta: 0 30px 70px -30px rgba(0,0,0,.95);
+  --brilho:      0 0 0 1px rgba(229,0,0,.35), 0 14px 40px -14px var(--brasa);
+
+  /* ------------------------------------------------------------- movimento
+     O cliente pediu animação. Animação boa é a que EXPLICA: a engrenagem gira
+     porque a oficina está trabalhando, a barra enche porque o conserto anda.
+     Duração curta, curva com saída rápida — interface não é vídeo. */
+  --transicao:  .28s cubic-bezier(.22, .61, .36, 1);
+  --transicao-l:.55s cubic-bezier(.22, .61, .36, 1);
+}
+
+/* Quem pediu menos movimento no sistema recebe menos movimento. Não é
+   detalhe de acessibilidade: enjoo de movimento é real e tira a pessoa do
+   site. O conteúdo continua inteiro — só a animação para. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}
+
+/* ============================== base ==================================== */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+:target, section[id] { scroll-margin-top: 6rem; }
+
+body {
+  background: var(--grafite);
+  color: var(--tinta);
+  font-family: var(--fonte-corpo);
+  font-size: var(--t-corpo);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--fonte-titulo);
+  font-weight: var(--peso-black);
+  line-height: 1.04;
+  letter-spacing: -.018em;
+  text-transform: uppercase;
+}
+
+img, svg, video { display: block; max-width: 100%; height: auto; }
+a { color: inherit; }
+
+/* O foco é visível SEMPRE, e em vermelho: quem navega por teclado precisa
+   enxergar onde está, e o anel padrão do navegador some no escuro. */
+:focus-visible {
+  outline: 2px solid var(--vermelho-luz);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+::selection { background: var(--vermelho); color: var(--branco); }
+
+/* Só para leitor de tela: o link "pular para o conteúdo" e os rótulos que a
+   tela não precisa mostrar mas a leitura precisa ouvir. */
+.sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ==========================================================================
+   PULAR PARA O CONTEÚDO
+   Primeiro elemento focável da página. Fica escondido até receber foco — quem
+   navega por teclado não deve ser obrigado a atravessar o menu inteiro em
+   toda página.
+   ========================================================================== */
+.pular {
+  position: absolute; left: 50%; translate: -50% -120%;
+  z-index: 200; padding: .7rem 1.2rem; border-radius: 0 0 var(--raio) var(--raio);
+  background: var(--vermelho); color: var(--branco);
+  font-weight: var(--peso-forte); text-decoration: none;
+  transition: translate var(--transicao);
+}
+.pular:focus { translate: -50% 0; }
+
+.env { width: 100%; max-width: var(--largura); margin-inline: auto; padding-inline: var(--gutter); }
+.env--fino { max-width: var(--largura-fina); }
+
+/* ==========================================================================
+   A ENGRENAGEM COMO MOTIVO
+
+   Ela gira DEVAGAR e só quando tem motivo: no topo enquanto a página prende a
+   atenção, no botão sob o cursor, na etapa em andamento do conserto. Girar
+   sempre e em todo lugar viraria ruído — e ruído não informa nada.
+   ========================================================================== */
+.eng { display: block; }
+@keyframes girar { to { rotate: 360deg; } }
+.eng--gira { animation: girar 18s linear infinite; }
+.eng--gira-r { animation: girar 24s linear infinite reverse; }
+
+/* ==========================================================================
+   BOTÕES
+   ========================================================================== */
+.btn {
+  --btn-alt: 3rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: .55rem;
+  min-height: var(--btn-alt); padding: 0 1.5rem;
+  border: 1px solid transparent; border-radius: var(--raio-p);
+  font-family: var(--fonte-titulo); font-size: .92rem; font-weight: var(--peso-forte);
+  letter-spacing: .04em; text-transform: uppercase; text-decoration: none;
+  cursor: pointer; white-space: nowrap; max-width: 100%;
+  transition: background var(--transicao), border-color var(--transicao),
+              color var(--transicao), translate var(--transicao), box-shadow var(--transicao);
+}
+.btn--sm { --btn-alt: 2.4rem; padding: 0 1rem; font-size: .8rem; }
+.btn--lg { --btn-alt: 3.5rem; padding: 0 2rem; font-size: 1rem; }
+.btn--largo { width: 100%; }
+
+/* Abaixo de 420px o rótulo longo QUEBRA em vez de empurrar a página. Foi um
+   defeito real: "Ver todos os consertos e os preços" media 358px numa tela de
+   345px e criava barra de rolagem horizontal na home inteira — com `nowrap`,
+   o botão não tinha como ceder. */
+@media (max-width: 420px) {
+  .btn { white-space: normal; text-align: center; line-height: 1.25;
+         padding-block: .7rem; height: auto; }
+}
+
+/* Ação: o vermelho cheio. Texto branco sobre ele dá 4,85:1 — passa AA. */
+.btn--acao { background: var(--vermelho); color: var(--branco); }
+.btn--acao:hover { background: var(--vermelho-luz); translate: 0 -2px; box-shadow: 0 12px 30px -12px var(--brasa); }
+.btn--acao:active { translate: 0 0; }
+
+/* Linha: o contorno de cromo. É o secundário — e o único que aparece sobre
+   foto, onde um fundo sólido brigaria com a imagem. */
+.btn--linha { background: transparent; border-color: var(--linha-viva); color: var(--tinta); }
+.btn--linha:hover { border-color: var(--vermelho); color: var(--branco); background: rgba(229,0,0,.10); }
+
+.btn--fantasma { background: transparent; color: var(--tinta-2); padding-inline: .6rem; }
+.btn--fantasma:hover { color: var(--branco); }
+
+/* ==========================================================================
+   TOPO
+
+   Gruda no alto e ESCURECE ao rolar, em vez de mudar de tamanho: cabeçalho
+   que encolhe empurra o conteúdo e faz a página tremer na primeira rolagem.
+   ========================================================================== */
+.topo {
+  position: sticky; top: 0; z-index: 100;
+  background: color-mix(in srgb, var(--grafite) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--linha);
+  transition: background var(--transicao), border-color var(--transicao);
+}
+.topo--rolado {
+  background: color-mix(in srgb, var(--grafite-2) 96%, transparent);
+  border-bottom-color: var(--linha-viva);
+  box-shadow: var(--sombra);
+}
+.topo__in { display: flex; align-items: center; gap: 1.2rem; min-height: 4.6rem; }
+
+.topo__marca { display: flex; align-items: center; text-decoration: none; flex: 0 0 auto; }
+.marca { display: flex; align-items: center; gap: .6rem; }
+.marca__emblema { width: auto; height: 2.5rem; }
+.marca__texto { width: auto; height: 1.85rem; }
+/* No celular fica só o emblema: o letreiro de duas linhas, espremido em
+   140px, vira mancha vermelha ilegível. */
+@media (max-width: 560px) { .marca__texto { display: none; } }
+
+.nav { display: flex; gap: .3rem; margin-inline: auto; }
+.nav__i {
+  position: relative; padding: .55rem .85rem; border-radius: var(--raio-p);
+  font-family: var(--fonte-titulo); font-size: .88rem; font-weight: 600;
+  letter-spacing: .03em; text-transform: uppercase; text-decoration: none;
+  color: var(--tinta-2); transition: color var(--transicao);
+}
+.nav__i:hover { color: var(--branco); }
+/* O sublinhado cresce do centro. É o único movimento do menu — e ele confirma
+   o alvo em vez de decorar. */
+.nav__i::after {
+  content: ""; position: absolute; left: 50%; bottom: .25rem; translate: -50% 0;
+  width: 0; height: 2px; background: var(--vermelho);
+  transition: width var(--transicao);
+}
+.nav__i:hover::after, .nav__i--atual::after { width: calc(100% - 1.7rem); }
+.nav__i--atual { color: var(--branco); }
+
+.topo__acoes { display: flex; align-items: center; gap: .55rem; flex: 0 0 auto; }
+.topo__cesta {
+  position: relative; display: grid; place-items: center;
+  width: 2.4rem; height: 2.4rem; border-radius: var(--raio-p);
+  color: var(--tinta-2); text-decoration: none;
+  transition: color var(--transicao), background var(--transicao);
+}
+.topo__cesta:hover { color: var(--branco); background: var(--grafite-3); }
+.topo__cesta-n {
+  position: absolute; top: -.1rem; right: -.1rem; min-width: 1.15rem; height: 1.15rem;
+  display: grid; place-items: center; padding-inline: .25rem;
+  border-radius: 999px; background: var(--vermelho); color: var(--branco);
+  font-family: var(--fonte-dado); font-size: .66rem; font-weight: 700; line-height: 1;
+}
+
+.topo__menu {
+  display: none; width: 2.6rem; height: 2.6rem; padding: .6rem;
+  background: transparent; border: 1px solid var(--linha); border-radius: var(--raio-p);
+  cursor: pointer;
+}
+.topo__menu span {
+  display: block; height: 2px; background: var(--tinta); border-radius: 2px;
+  transition: translate var(--transicao), rotate var(--transicao), opacity var(--transicao);
+}
+.topo__menu span + span { margin-top: 4px; }
+.topo__menu[aria-expanded="true"] span:nth-child(1) { translate: 0 6px; rotate: 45deg; }
+.topo__menu[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.topo__menu[aria-expanded="true"] span:nth-child(3) { translate: 0 -6px; rotate: -45deg; }
+
+.nav-movel {
+  display: none; flex-direction: column; gap: .2rem;
+  padding: .8rem var(--gutter) 1.4rem; border-top: 1px solid var(--linha);
+}
+/* `:not(.btn)` não é preciosismo: sem ele, esta regra vence o `.btn--acao`
+   por especificidade (classe+elemento contra classe só) e pinta o botão
+   principal do menu com a cor de link — 4,02:1 sobre o vermelho, reprovado no
+   AA. O botão ficaria visível, e só o medidor perceberia. */
+.nav-movel a:not(.btn) {
+  padding: .85rem .4rem; color: var(--tinta); text-decoration: none;
+  font-family: var(--fonte-titulo); font-weight: 600; text-transform: uppercase;
+  letter-spacing: .03em; border-bottom: 1px solid var(--linha);
+}
+.nav-movel .btn { margin-top: .9rem; border-bottom: 0; }
+
+@media (max-width: 900px) {
+  .nav, .topo__acompanhar { display: none; }
+  .topo__menu { display: block; }
+  .nav-movel:not([hidden]) { display: flex; }
+  .topo__in { justify-content: space-between; }
+}
+
+/* ==========================================================================
+   SEÇÕES E TÍTULOS
+   ========================================================================== */
+.secao { padding-block: var(--secao-y); position: relative; }
+.secao--tinta { background: var(--grafite-2); }
+.secao__cabeca { max-width: 46rem; margin-bottom: clamp(2rem, 1rem + 3vw, 3.4rem); }
+.secao__cabeca--centro { margin-inline: auto; text-align: center; }
+
+/* O rótulo é a menor peça de texto da página e a que mais se repete. Leva a
+   engrenagem porque é a assinatura do sistema — e vai em vermelho-luz, não no
+   vermelho da marca: em corpo 12px o vermelho cheio não passa no contraste. */
+.rotulo {
+  display: inline-flex; align-items: center; gap: .5rem;
+  font-family: var(--fonte-dado); font-size: var(--t-mini); font-weight: 700;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--vermelho-luz);
+  margin-bottom: .9rem;
+}
+.rotulo .eng { color: var(--vermelho); }
+
+.titulo { font-size: var(--t-h2); }
+.titulo em { color: var(--vermelho); font-style: normal; }
+.sub { margin-top: 1rem; color: var(--tinta-2); font-size: var(--t-guia); max-width: 46rem; }
+
+/* ==========================================================================
+   O CARTÃO DE METAL
+
+   O acabamento cromado do logotipo vira COMPORTAMENTO, não textura: uma borda
+   de 1px que pega luz no topo e apaga embaixo. Imagem de metal envelhece em
+   dois anos; um gradiente de 1px, não.
+   ========================================================================== */
+.cartao {
+  position: relative; padding: clamp(1.3rem, 1rem + 1vw, 1.9rem);
+  border-radius: var(--raio); background: var(--metal-face);
+  border: 1px solid var(--linha);
+  transition: border-color var(--transicao), translate var(--transicao), box-shadow var(--transicao);
+}
+/* O fio de luz no topo. `mask` recorta o degradê num contorno de 1px — é o
+   jeito de ter borda com gradiente sem empilhar duas caixas. */
+.cartao::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 55%);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude; -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+.cartao:hover { border-color: var(--linha-viva); translate: 0 -3px; box-shadow: var(--sombra-alta); }
+.cartao--acende:hover { border-color: rgba(229,0,0,.5); box-shadow: var(--brilho); }
+
+.cartao__titulo { font-size: var(--t-h3); margin-bottom: .5rem; }
+.cartao__texto { color: var(--tinta-2); font-size: .95rem; }
+.cartao__texto > * + * { margin-top: .7rem; }
+
+/* ==========================================================================
+   DADO — preço, prazo, código
+
+   Monoespaçada e tabular. Números que alinham em coluna são o que faz uma
+   tabela de preço parecer tabela de preço, e não parágrafo com R$ no meio.
+   ========================================================================== */
+.dado { font-family: var(--fonte-dado); font-variant-numeric: tabular-nums; font-weight: 700; }
+.preco {
+  font-family: var(--fonte-dado); font-weight: 700; color: var(--branco);
+  font-variant-numeric: tabular-nums;
+}
+.preco__de { color: var(--tinta-3); text-decoration: line-through; font-size: .85em; font-weight: 500; }
+.preco__apartir {
+  display: block; font-family: var(--fonte-corpo); font-size: var(--t-mini);
+  font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-3);
+}
+
+/* ==========================================================================
+   REVELAÇÃO NA ROLAGEM
+
+   Só existe com a classe `js` no <html> — sem JavaScript o site aparece
+   inteiro e parado. Enfeite que falha não pode apagar a loja.
+   ========================================================================== */
+.js [data-revela] {
+  opacity: 0; translate: 0 18px;
+  transition: opacity var(--transicao-l), translate var(--transicao-l);
+}
+.js [data-revela].revelado { opacity: 1; translate: 0 0; }
+.js [data-revela-atraso="1"] { transition-delay: .09s; }
+.js [data-revela-atraso="2"] { transition-delay: .18s; }
+.js [data-revela-atraso="3"] { transition-delay: .27s; }
+
+/* ==========================================================================
+   RODAPÉ
+   ========================================================================== */
+.rodape { background: var(--preto); border-top: 1px solid var(--linha); padding-top: var(--secao-y); }
+.rodape__topo {
+  display: grid; gap: clamp(1.8rem, 1rem + 3vw, 3rem);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  padding-bottom: 2.6rem;
+}
+.rodape__marca { grid-column: span 2; max-width: 24rem; }
+@media (max-width: 700px) { .rodape__marca { grid-column: span 1; } }
+.rodape__marca .marca { flex-direction: column; align-items: flex-start; gap: .8rem; }
+.rodape__marca .marca__emblema { height: 3.4rem; }
+.rodape__marca .marca__texto { height: 2.2rem; display: block; }
+.rodape__frase { margin-top: 1rem; color: var(--tinta-2); font-size: .95rem; }
+.rodape__social { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.2rem; }
+.rodape__zap, .rodape__insta {
+  display: inline-flex; align-items: center; padding: .45rem .9rem;
+  border: 1px solid var(--linha-viva); border-radius: 999px;
+  font-size: .85rem; color: var(--tinta); text-decoration: none;
+  transition: border-color var(--transicao), color var(--transicao);
+}
+.rodape__zap:hover, .rodape__insta:hover { border-color: var(--vermelho); color: var(--branco); }
+
+.rodape__tit { font-size: .82rem; letter-spacing: .14em; color: var(--branco); margin-bottom: .9rem; }
+.rodape__col ul { list-style: none; padding: 0; display: grid; gap: .5rem; }
+.rodape__col a { color: var(--tinta-2); text-decoration: none; font-size: .9rem; transition: color var(--transicao); }
+.rodape__col a:hover { color: var(--vermelho-alto); }
+.rodape__loja { font-style: normal; color: var(--tinta-2); font-size: .9rem; line-height: 1.7; }
+.rodape__loja a { color: var(--tinta); text-decoration: none; }
+
+.rodape__base {
+  display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;
+  padding-block: 1.4rem; border-top: 1px solid var(--linha);
+}
+.rodape__legal { color: var(--tinta-3); font-size: var(--t-meta); }
+
+/* ------------------------------------------------- assinatura da LA */
+.dev-credit {
+  display: inline-flex; align-items: center; gap: .45rem;
+  color: var(--tinta-3); font-size: var(--t-meta); text-decoration: none;
+  transition: color var(--transicao);
+}
+.dev-credit strong { font-weight: 700; }
+.dev-credit:hover { color: var(--vermelho-alto); }
+
+/* ==========================================================================
+   WHATSAPP FLUTUANTE
+   ========================================================================== */
+.zap-flut {
+  position: fixed; right: clamp(1rem, .5rem + 1.5vw, 1.8rem);
+  bottom: clamp(1rem, .5rem + 1.5vw, 1.8rem);
+  z-index: 90; display: grid; place-items: center; width: 3.4rem; height: 3.4rem;
+  border-radius: 50%; background: #25D366; color: #0B0C0E; text-decoration: none;
+  box-shadow: 0 14px 34px -12px rgba(37,211,102,.55);
+  transition: translate var(--transicao), box-shadow var(--transicao), opacity var(--transicao);
+}
+.zap-flut:hover { translate: 0 -3px; box-shadow: 0 20px 44px -14px rgba(37,211,102,.7); }
+/* Some enquanto alguém digita: botão flutuante em cima do teclado do celular
+   é a causa clássica de formulário abandonado. */
+.digitando .zap-flut { opacity: 0; pointer-events: none; }
+
+/* ==========================================================================
+   AVISO DE COOKIES
+   ========================================================================== */
+.consent {
+  position: fixed; left: 50%; bottom: 1rem; translate: -50% 0; z-index: 120;
+  width: min(46rem, calc(100vw - 2rem));
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1.3rem; border-radius: var(--raio);
+  background: var(--grafite-3); border: 1px solid var(--linha-viva); box-shadow: var(--sombra-alta);
+  font-size: .88rem; color: var(--tinta-2);
+}
+.consent strong { color: var(--branco); }
+.consent__acoes { display: flex; gap: .6rem; }
+
+/* ==========================================================================
+   GRADE
+
+   `auto-fit` com `minmax`: as colunas somem sozinhas quando não cabem, sem uma
+   media query por seção. É o que faz o site atravessar de 320px a 4K sem uma
+   linha de exceção para cada largura.
+   ========================================================================== */
+.grade { display: grid; gap: clamp(.9rem, .6rem + 1vw, 1.4rem); }
+.grade--2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+.grade--3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+.grade--4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+.secao__mais { margin-top: 2.2rem; }
+
+/* ==========================================================================
+   TOPO DA HOME — o conceito em uma tela
+
+   Fundo escuro, engrenagens girando atrás e um aparelho cuja tela ACENDE.
+   Aparelho quebrado é aparelho apagado; a Alafcell devolve o sinal. É a mesma
+   frase do sistema visual, dita sem escrever.
+   ========================================================================== */
+.hero { position: relative; overflow: hidden; padding-block: clamp(3rem, 1.5rem + 6vw, 6.5rem) var(--secao-y); }
+
+/* As engrenagens ficam num plano só, em opacidade baixa. Elas são TEXTURA, e
+   não ilustração: se estivessem legíveis, competiriam com o título. */
+.hero__maquina { position: absolute; inset: 0; pointer-events: none; }
+.hero__eng { position: absolute; color: var(--vermelho); }
+.hero__eng--g { top: -14%; right: -12%; opacity: .10; }
+.hero__eng--p { bottom: -8%; right: 18%; opacity: .06; }
+@media (max-width: 900px) { .hero__eng--p { display: none; } }
+
+/* A luz vermelha que vaza por trás do conteúdo — o "sinal" chegando. */
+.hero::before {
+  content: ""; position: absolute; top: -30%; left: 50%; translate: -50% 0;
+  width: min(90rem, 160%); aspect-ratio: 2 / 1;
+  background: radial-gradient(ellipse at center, rgba(229,0,0,.20), transparent 62%);
+  pointer-events: none;
+}
+
+.hero__in {
+  position: relative; display: grid; gap: clamp(2rem, 1rem + 4vw, 4rem);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); align-items: center;
+}
+@media (max-width: 900px) {
+  .hero__in { grid-template-columns: 1fr; }
+  .hero__aparelho { order: -1; }
+}
+
+.hero__titulo { font-size: var(--t-h1); }
+.hero__titulo em { color: var(--vermelho); font-style: normal; }
+.hero__sub { margin-top: 1.2rem; max-width: 34rem; color: var(--tinta-2); font-size: var(--t-guia); }
+.hero__acoes { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2rem; }
+
+/* --------------------------------------------------------------- números
+   Em monoespaçada, porque são DADO: prazo, garantia e preço são a promessa da
+   loja, e promessa se lê em número, não em adjetivo. */
+.numeros {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 1.4rem; margin-top: 2.8rem; padding-top: 1.8rem; border-top: 1px solid var(--linha);
+}
+.numero__v { font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.1rem); color: var(--branco); line-height: 1; }
+.numero__r { margin-top: .45rem; font-size: var(--t-meta); color: var(--tinta-3); }
+
+/* ==========================================================================
+   O APARELHO QUE ACENDE
+
+   Desenhado em CSS. Imagem de celular genérico é o que faz site de assistência
+   parecer template — e custaria uma requisição pesada no topo da página, que é
+   exatamente onde ela mais atrasa a primeira pintura.
+   ========================================================================== */
+.hero__aparelho { display: grid; place-items: center; }
+.fone {
+  position: relative; width: min(15rem, 62vw); aspect-ratio: 1 / 2.03;
+  border-radius: 2.1rem; padding: .55rem;
+  background: var(--metal-borda);
+  box-shadow: 0 40px 90px -30px #000, 0 0 0 1px rgba(255,255,255,.07) inset;
+  rotate: -7deg;
+  transition: rotate var(--transicao-l), translate var(--transicao-l);
+}
+.hero:hover .fone { rotate: -4deg; translate: 0 -6px; }
+.fone__tela {
+  position: relative; height: 100%; border-radius: 1.7rem; overflow: hidden;
+  background: linear-gradient(165deg, #0E1013, #05060700);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.8) inset;
+}
+/* A luz que atravessa a tela: é ela que "liga" o aparelho, e é o único
+   movimento contínuo do topo. Passa a cada seis segundos — rápido demais
+   viraria pisca-pisca. */
+.fone__luz {
+  position: absolute; inset: -30% -60%;
+  background: linear-gradient(115deg, transparent 38%, rgba(229,0,0,.55) 47%,
+              rgba(255,255,255,.85) 50%, rgba(229,0,0,.55) 53%, transparent 62%);
+  translate: -60% 0; filter: blur(2px);
+  animation: varrer 6s cubic-bezier(.65,0,.35,1) infinite;
+}
+@keyframes varrer {
+  0%, 55% { translate: -70% 0; opacity: 0; }
+  62%     { opacity: 1; }
+  92%,100%{ translate: 70% 0; opacity: 0; }
+}
+.fone__alto {
+  position: absolute; top: 1.35rem; left: 50%; translate: -50% 0;
+  width: 3.4rem; height: .32rem; border-radius: 999px;
+  background: #05060A; box-shadow: 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* ==========================================================================
+   BUSCA POR APARELHO
+
+   Sobe da seção e encosta no topo da home de propósito: é a primeira pergunta
+   de quem chega, e ela responde sozinha, sem ninguém do outro lado.
+   ========================================================================== */
+.busca { padding-top: 0; margin-top: calc(var(--secao-y) * -.35); }
+.busca__caixa { padding: clamp(1.6rem, 1rem + 2.4vw, 2.8rem); }
+.busca__cabeca { max-width: 40rem; }
+.busca__form {
+  display: grid; gap: .9rem; margin-top: 1.8rem; align-items: end;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+.busca__form .btn { min-height: 3rem; }
+
+.campo { display: grid; gap: .4rem; }
+.campo__rot {
+  font-family: var(--fonte-dado); font-size: var(--t-mini); font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-3);
+}
+.campo__ent {
+  width: 100%; min-height: 3rem; padding: 0 .9rem;
+  background: var(--grafite-3); color: var(--tinta);
+  border: 1px solid var(--linha); border-radius: var(--raio-p);
+  font-family: inherit; font-size: 1rem;
+  transition: border-color var(--transicao);
+}
+.campo__ent:hover { border-color: var(--linha-viva); }
+.campo__ent:focus { border-color: var(--vermelho); }
+textarea.campo__ent { min-height: 7rem; padding-block: .7rem; resize: vertical; line-height: 1.6; }
+
+.busca__rapidos { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1.4rem; }
+.busca__rot { font-size: var(--t-meta); color: var(--tinta-3); margin-right: .2rem; }
+.etiqueta {
+  display: inline-flex; padding: .35rem .8rem; border-radius: 999px;
+  border: 1px solid var(--linha-viva); font-size: .84rem; color: var(--tinta-2);
+  text-decoration: none; transition: border-color var(--transicao), color var(--transicao);
+}
+.etiqueta:hover { border-color: var(--vermelho); color: var(--branco); }
+.busca__nota { margin-top: 1.2rem; font-size: var(--t-meta); color: var(--tinta-3); }
+.busca__nota a { color: var(--vermelho-alto); }
+
+/* ==========================================================================
+   CARTÃO DE SERVIÇO
+   ========================================================================== */
+.serv { display: flex; flex-direction: column; text-decoration: none; }
+.serv__ico {
+  display: grid; place-items: center; width: 3rem; height: 3rem; margin-bottom: 1.1rem;
+  border-radius: var(--raio-p); background: var(--vermelho-fundo); color: var(--vermelho-alto);
+  transition: background var(--transicao), color var(--transicao);
+}
+.serv:hover .serv__ico { background: var(--vermelho); color: var(--branco); }
+.serv__pe {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: .6rem; margin-top: auto; padding-top: 1.3rem;
+}
+.serv__pe .preco { font-size: 1.22rem; }
+.serv__prazo { font-size: var(--t-meta); color: var(--tinta-3); font-weight: 500; }
+
+/* ==========================================================================
+   BUSCA E LEVA
+   ========================================================================== */
+.coleta__in {
+  display: grid; gap: clamp(2rem, 1rem + 4vw, 4rem);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); align-items: center;
+}
+@media (max-width: 900px) { .coleta__in { grid-template-columns: 1fr; } .coleta__mapa { display: none; } }
+
+/* O contraste é o argumento inteiro da seção. Duas linhas, dois sinais: a de
+   cima é o que o concorrente faz, a de baixo é o que esta loja faz. */
+.contraste { list-style: none; padding: 0; display: grid; gap: .8rem; margin-top: 1.8rem; }
+.contraste__i {
+  display: grid; gap: .2rem; padding: 1rem 1.1rem 1rem 3rem; position: relative;
+  border-radius: var(--raio); border: 1px solid var(--linha); background: var(--grafite-2);
+}
+.contraste__i strong { font-family: var(--fonte-titulo); text-transform: uppercase; letter-spacing: .03em; font-size: .9rem; }
+.contraste__i span { color: var(--tinta-2); font-size: .93rem; }
+.contraste__i::before {
+  position: absolute; left: 1rem; top: 1rem;
+  width: 1.3rem; height: 1.3rem; border-radius: 50%; display: grid; place-items: center;
+  font-size: .8rem; font-weight: 700; line-height: 1;
+}
+.contraste__i--nao::before { content: "×"; background: var(--grafite-3); color: var(--tinta-3); }
+.contraste__i--nao strong { color: var(--tinta-3); }
+.contraste__i--sim::before { content: "✓"; background: var(--vermelho); color: var(--branco); }
+.contraste__i--sim { border-color: rgba(229,0,0,.4); }
+.contraste__i--sim strong { color: var(--branco); }
+
+.coleta__aviso { margin-top: 1.2rem; font-size: var(--t-meta); color: var(--tinta-3); }
+.coleta .btn { margin-top: 1.6rem; }
+
+/* O pulso: o sinal saindo da loja e alcançando a cidade. Três anéis com
+   atraso, e a engrenagem parada no centro. */
+.coleta__mapa { display: grid; place-items: center; min-height: 18rem; }
+.pulso { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; color: var(--vermelho); }
+.pulso span {
+  position: absolute; inset: 0; margin: auto; width: 30%; aspect-ratio: 1;
+  border: 1px solid var(--vermelho); border-radius: 50%; opacity: 0;
+  animation: pulsar 3.6s cubic-bezier(.2,.6,.35,1) infinite;
+}
+.pulso span:nth-child(2) { animation-delay: 1.2s; }
+.pulso span:nth-child(3) { animation-delay: 2.4s; }
+@keyframes pulsar {
+  0%   { scale: .5; opacity: .85; }
+  100% { scale: 3.2; opacity: 0; }
+}
+
+/* ==========================================================================
+   AS ETAPAS
+
+   O mesmo desenho da página de acompanhamento do conserto. Quem vê aqui
+   reconhece a tela depois — e reconhecer, para quem está sem o celular há
+   dois dias, vale mais que uma ilustração bonita.
+   ========================================================================== */
+.etapas {
+  list-style: none; padding: 0; display: grid; gap: clamp(1rem, .6rem + 1.4vw, 1.6rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  counter-reset: etapa;
+}
+.etapa { position: relative; padding-top: 2.6rem; }
+/* O trilho que liga as etapas. Some no celular, onde elas empilham — uma
+   linha horizontal ligando caixas em coluna aponta para o nada. */
+.etapa::before {
+  content: ""; position: absolute; top: 1.05rem; left: 2.6rem; right: -1.6rem;
+  height: 1px; background: var(--linha);
+}
+.etapa:last-child::before { display: none; }
+@media (max-width: 640px) { .etapa::before { display: none; } }
+.etapa__n {
+  position: absolute; top: 0; left: 0; width: 2.1rem; height: 2.1rem;
+  display: grid; place-items: center; border-radius: 50%;
+  background: var(--vermelho); color: var(--branco); font-size: .9rem;
+}
+.etapa__t { font-size: 1.05rem; margin-bottom: .4rem; }
+.etapa__d { color: var(--tinta-2); font-size: .93rem; }
+
+/* ==========================================================================
+   PRODUTO NA VITRINE
+   ========================================================================== */
+.prod { display: flex; flex-direction: column; text-decoration: none; }
+.prod__pe { display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem; margin-top: auto; padding-top: 1.2rem; }
+.prod__pe .preco { font-size: 1.25rem; }
+.selo {
+  display: inline-flex; align-self: flex-start; margin-bottom: .8rem;
+  padding: .25rem .6rem; border-radius: var(--raio-p);
+  font-family: var(--fonte-dado); font-size: .68rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.selo--semi { background: var(--vermelho-fundo); color: var(--vermelho-alto); }
+.selo--novo { background: var(--grafite-3); color: var(--tinta-2); }
+
+/* ==========================================================================
+   CHAMADA FINAL
+   ========================================================================== */
+.fim { text-align: center; }
+.fim__in { display: grid; justify-items: center; }
+.fim .sub { margin-inline: auto; }
+.fim .hero__acoes { justify-content: center; }
+
+/* ==========================================================================
+   CAPA DAS PÁGINAS INTERNAS
+
+   Menor que o topo da home de propósito: quem chega aqui já sabe onde está e
+   veio buscar a informação abaixo. Uma capa alta em página interna é rolagem
+   cobrada de quem já decidiu.
+   ========================================================================== */
+.capa {
+  padding-bottom: clamp(1.6rem, 1rem + 2vw, 2.6rem); position: relative;
+  /* `clip`, e não `hidden`: o brilho vermelho abaixo passa 10% para fora da
+     seção, e sem recorte ele alarga a página em 36px no celular — barra de
+     rolagem horizontal em toda tela interna. `hidden` resolveria também, mas
+     transformaria a seção em contêiner de rolagem e quebraria qualquer
+     `position: sticky` que venha a viver aqui dentro. */
+  overflow: clip;
+}
+.capa::before {
+  content: ""; position: absolute; top: -40%; right: -10%;
+  width: min(52rem, 90%); aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(229,0,0,.13), transparent 60%);
+  pointer-events: none;
+}
+.capa__t { font-size: clamp(2rem, 1.4rem + 2.6vw, 3.4rem); position: relative; }
+.capa .sub { position: relative; }
+.capa__form { margin-top: 2rem; padding: clamp(1.2rem, .9rem + 1.4vw, 1.8rem); }
+
+/* --------------------------------------------------------------- migalha */
+.migalha {
+  display: flex; flex-wrap: wrap; gap: .45rem; align-items: center;
+  margin-bottom: 1.6rem; font-size: var(--t-meta); color: var(--tinta-3);
+}
+.migalha a { color: var(--tinta-3); text-decoration: none; transition: color var(--transicao); }
+.migalha a:hover { color: var(--vermelho-alto); }
+.migalha strong { color: var(--tinta-2); font-weight: 500; }
+.migalha span { opacity: .5; }
+
+/* ==========================================================================
+   TABELA DE PREÇOS
+
+   A peça central do site. Ela rola sozinha na horizontal no celular, dentro da
+   própria caixa — a página nunca ganha barra horizontal por causa dela.
+   ========================================================================== */
+.tabela-caixa { padding: 0; overflow: hidden; }
+.tabela-caixa > .tabela { display: block; overflow-x: auto; }
+.tabela { width: 100%; border-collapse: collapse; }
+.tabela thead th {
+  position: sticky; top: 0; z-index: 1;
+  padding: .9rem 1.1rem; text-align: left; white-space: nowrap;
+  background: var(--grafite-3); color: var(--tinta-2);
+  font-family: var(--fonte-dado); font-size: var(--t-mini); font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  border-bottom: 1px solid var(--linha);
+}
+.tabela tbody tr { border-bottom: 1px solid var(--linha); transition: background var(--transicao); }
+.tabela tbody tr:last-child { border-bottom: 0; }
+.tabela tbody tr:hover { background: rgba(255,255,255,.025); }
+.tabela td, .tabela th[scope="row"] { padding: .95rem 1.1rem; vertical-align: middle; }
+
+.tab__serv { text-align: left; font-weight: 500; }
+.tab__serv a { color: var(--tinta); text-decoration: none; transition: color var(--transicao); }
+.tab__serv a:hover { color: var(--vermelho-alto); }
+.tab__obs { display: block; margin-top: .2rem; font-size: var(--t-mini); color: var(--tinta-3); }
+.tab__preco .preco { font-size: 1.06rem; white-space: nowrap; }
+.tab__prazo { color: var(--tinta-3); font-size: var(--t-meta); font-weight: 500; white-space: nowrap; }
+.tab__sem { color: var(--tinta-3); font-size: var(--t-meta); }
+.tab__acao { text-align: right; }
+
+.tabela__nota { margin-top: 1.2rem; font-size: var(--t-meta); color: var(--tinta-3); max-width: 46rem; }
+.tabela__nota a { color: var(--vermelho-alto); }
+.tabela__nota strong { color: var(--tinta-2); }
+
+/* ==========================================================================
+   FAIXA DE BUSCA E LEVA
+
+   Repetida no fim de toda tela de conserto. Vermelha porque é a única faixa do
+   site — se houvesse duas, nenhuma chamaria atenção.
+   ========================================================================== */
+.faixa {
+  background: linear-gradient(100deg, var(--vermelho-fundo), #1A0505 65%);
+  border-block: 1px solid rgba(229,0,0,.35);
+  padding-block: clamp(2rem, 1.2rem + 3vw, 3.4rem); overflow: hidden;
+}
+.faixa__in { display: flex; flex-wrap: wrap; align-items: center; gap: clamp(1rem, .6rem + 2vw, 2.2rem); }
+.faixa__eng { color: rgba(229,0,0,.35); flex: 0 0 auto; }
+@media (max-width: 720px) { .faixa__eng { display: none; } }
+.faixa__in > div { flex: 1 1 18rem; }
+.faixa__t { font-family: var(--fonte-titulo); font-weight: var(--peso-black);
+  text-transform: uppercase; font-size: var(--t-h3); letter-spacing: -.01em; }
+.faixa__d { margin-top: .4rem; color: var(--tinta-2); font-size: .95rem; }
+
+/* ==========================================================================
+   PÁGINA DE UM SERVIÇO
+   ========================================================================== */
+.capa-serv__in { display: flex; align-items: center; gap: 2rem; }
+.capa-serv__in > div { flex: 1 1 auto; }
+.capa-serv__t { font-size: clamp(2rem, 1.4rem + 2.6vw, 3.4rem); }
+.capa-serv__ico {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: clamp(6rem, 12vw, 9rem); aspect-ratio: 1; border-radius: var(--raio-g);
+  background: var(--vermelho-fundo); color: var(--vermelho-alto);
+}
+.capa-serv__ico svg { width: 45%; height: 45%; }
+@media (max-width: 720px) { .capa-serv__ico { display: none; } }
+
+/* As fichas: prazo, garantia, orçamento. Em monoespaçada, lado a lado, porque
+   são a promessa em número — e número se compara alinhado. */
+.fichas { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1.8rem; }
+.ficha {
+  display: grid; gap: .15rem; padding: .7rem 1rem; border-radius: var(--raio-p);
+  background: var(--grafite-2); border: 1px solid var(--linha); min-width: 8rem;
+}
+.ficha__r { font-size: var(--t-mini); letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-3); }
+.ficha__v { color: var(--branco); font-size: 1rem; }
+
+.serv-corpo { display: grid; gap: clamp(1.4rem, 1rem + 2vw, 2.4rem);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 860px) { .serv-corpo { grid-template-columns: 1fr; } }
+
+.sintomas { list-style: none; padding: 0; display: grid; gap: .55rem; margin-top: 1rem; }
+.sintomas li {
+  position: relative; padding-left: 1.6rem; color: var(--tinta-2); font-size: .93rem;
+}
+.sintomas li::before {
+  content: ""; position: absolute; left: 0; top: .58em;
+  width: .55rem; height: .55rem; border-radius: 50%; background: var(--vermelho);
+}
+
+/* -------------------------------------------------------- cartão de modelo */
+.mod { display: flex; flex-direction: column; }
+.mod .cartao__texto { font-size: var(--t-meta); color: var(--tinta-3); }
+
+/* -------------------------------------------------------------- marcas */
+.marcas { display: flex; flex-wrap: wrap; gap: .7rem; }
+.marcas__i {
+  display: inline-flex; align-items: center; padding: .8rem 1.4rem;
+  border: 1px solid var(--linha); border-radius: var(--raio);
+  background: var(--metal-face); color: var(--tinta);
+  font-family: var(--fonte-titulo); font-weight: 600; text-transform: uppercase;
+  letter-spacing: .04em; font-size: .9rem; text-decoration: none;
+  transition: border-color var(--transicao), color var(--transicao), translate var(--transicao);
+}
+.marcas__i:hover { border-color: var(--vermelho); color: var(--branco); translate: 0 -2px; }
+
+/* ==========================================================================
+   FORMULÁRIOS
+   ========================================================================== */
+.form-linha { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
+.form-coleta, .form-contato, .form-os { display: grid; gap: 1rem; }
+.form-coleta .btn, .form-contato .btn { margin-top: .4rem; }
+.form-nota { font-size: var(--t-meta); color: var(--tinta-3); }
+.form-nota a { color: var(--vermelho-alto); }
+
+.campo--radio { border: 0; padding: 0; margin: 0; }
+.radios { display: flex; gap: .5rem; }
+.radio {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 3rem; padding: 0 .8rem; cursor: pointer;
+  border: 1px solid var(--linha); border-radius: var(--raio-p); background: var(--grafite-3);
+  transition: border-color var(--transicao), background var(--transicao);
+}
+.radio:has(input:checked) { border-color: var(--vermelho); background: rgba(229,0,0,.10); }
+.radio input { accent-color: var(--vermelho); }
+
+/* O campo isca fica fora da tela, e não com `display:none`: alguns robôs
+   ignoram o que está escondido por display. Assim ele é preenchido por eles e
+   invisível para gente. */
+.isca { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.aviso {
+  padding: .85rem 1.1rem; border-radius: var(--raio-p);
+  background: var(--grafite-3); border: 1px solid var(--linha);
+  font-size: .92rem; color: var(--tinta-2);
+}
+.aviso--erro { border-color: rgba(229,0,0,.5); background: rgba(229,0,0,.10); color: var(--tinta); }
+.aviso a { color: var(--vermelho-alto); }
+
+.sucesso { text-align: center; display: grid; justify-items: center; gap: .3rem; }
+.sucesso__ico {
+  display: grid; place-items: center; width: 5rem; height: 5rem; margin-bottom: 1rem;
+  border-radius: 50%; background: var(--vermelho-fundo); color: var(--vermelho);
+}
+.sucesso .sub { margin-inline: auto; }
+.sucesso .hero__acoes { justify-content: center; }
+
+/* ==========================================================================
+   LOJA — vitrine
+   ========================================================================== */
+.loja-barra {
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+  margin-bottom: 1.8rem; padding-bottom: 1.1rem; border-bottom: 1px solid var(--linha);
+}
+.abas { display: flex; flex-wrap: wrap; gap: .4rem; }
+.aba {
+  padding: .5rem 1rem; border-radius: 999px; border: 1px solid var(--linha);
+  font-family: var(--fonte-titulo); font-size: .84rem; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--tinta-2); text-decoration: none;
+  transition: border-color var(--transicao), color var(--transicao), background var(--transicao);
+}
+.aba:hover { border-color: var(--linha-viva); color: var(--branco); }
+.aba--atual { background: var(--vermelho); border-color: var(--vermelho); color: var(--branco); }
+.campo__ent--sm { min-height: 2.5rem; font-size: .9rem; }
+.loja-ordem { margin: 0; }
+
+/* A imagem do produto tem PROPORÇÃO FIXA. Sem isso, a grade de quatro colunas
+   pula toda vez que uma foto de altura diferente carrega. */
+.prod__img {
+  display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3;
+  margin-bottom: 1rem; border-radius: var(--raio-p); overflow: hidden;
+  background: var(--grafite-3); object-fit: cover;
+}
+.prod__img--vazia { color: var(--linha-viva); transition: color var(--transicao); }
+.prod__img--vazia svg { width: 46%; height: 46%; }
+.prod:hover .prod__img--vazia { color: var(--vermelho); }
+.prod__img--g { aspect-ratio: 1; margin: 0; }
+.prod__img--g svg { width: 40%; height: 40%; }
+.prod__img--p { width: 4.6rem; aspect-ratio: 1; margin: 0; }
+.prod__img--p svg { width: 52%; height: 52%; }
+
+.prod--fora { opacity: .62; }
+.prod__fora {
+  margin-top: .6rem; font-family: var(--fonte-dado); font-size: var(--t-mini);
+  letter-spacing: .08em; text-transform: uppercase; color: var(--tinta-3);
+}
+
+/* ==========================================================================
+   LOJA — a página do produto
+   ========================================================================== */
+.prod-detalhe {
+  display: grid; gap: clamp(1.4rem, 1rem + 2.4vw, 2.8rem);
+  grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); align-items: start;
+}
+@media (max-width: 860px) { .prod-detalhe { grid-template-columns: 1fr; } }
+.prod-detalhe__foto { padding: clamp(1rem, .8rem + 1vw, 1.6rem); }
+.prod-detalhe__t { font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.5rem); margin-top: .6rem; }
+
+.preco-bloco { display: grid; gap: .2rem; margin-top: 1.6rem; }
+.preco--g { font-size: clamp(1.8rem, 1.4rem + 1.6vw, 2.4rem); line-height: 1.1; }
+.preco__parcela, .preco__pix { font-size: var(--t-meta); color: var(--tinta-3); }
+.preco__pix { color: var(--vermelho-alto); }
+
+.prod-comprar { display: flex; flex-wrap: wrap; gap: .8rem; align-items: flex-end; margin-top: 1.6rem; }
+.campo--qtd { flex: 0 0 5.5rem; }
+.campo--qtd .campo__ent { text-align: center; font-family: var(--fonte-dado); }
+.prod-estoque { margin-top: .7rem; font-size: var(--t-meta); color: var(--tinta-3); font-weight: 500; }
+
+.ficha-tec {
+  display: grid; gap: 0; margin-top: 2rem;
+  border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden;
+}
+.ficha-tec > div {
+  display: flex; justify-content: space-between; gap: 1rem;
+  padding: .8rem 1.1rem; border-bottom: 1px solid var(--linha);
+}
+.ficha-tec > div:last-child { border-bottom: 0; }
+.ficha-tec > div:nth-child(odd) { background: rgba(255,255,255,.018); }
+.ficha-tec dt { color: var(--tinta-3); font-size: .9rem; }
+.ficha-tec dd { color: var(--branco); font-size: .92rem; text-align: right; }
+
+/* ==========================================================================
+   CARRINHO E CHECKOUT
+   ========================================================================== */
+.carrinho, .checkout {
+  display: grid; gap: clamp(1.1rem, .8rem + 1.4vw, 1.8rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem); align-items: start;
+}
+@media (max-width: 860px) { .carrinho, .checkout { grid-template-columns: 1fr; } }
+.carrinho__itens, .checkout__campos { display: grid; gap: .9rem; }
+
+.citem {
+  display: grid; align-items: center; gap: 1rem;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  padding: 1rem;
+}
+@media (max-width: 620px) {
+  .citem { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .citem__sub { grid-column: 2 / 4; text-align: right; }
+}
+.citem__foto { display: block; }
+.citem__info { display: grid; gap: .15rem; min-width: 0; }
+.citem__nome { color: var(--tinta); text-decoration: none; font-weight: 500; }
+.citem__nome:hover { color: var(--vermelho-alto); }
+.citem__meta { font-size: var(--t-meta); color: var(--tinta-3); }
+.citem__unit { font-size: var(--t-meta); color: var(--tinta-3); font-weight: 500; }
+.citem__sub { font-size: 1.05rem; white-space: nowrap; }
+.citem__x {
+  width: 2.1rem; height: 2.1rem; border-radius: var(--raio-p); cursor: pointer;
+  background: transparent; border: 1px solid var(--linha); color: var(--tinta-3);
+  font-size: 1.2rem; line-height: 1;
+  transition: border-color var(--transicao), color var(--transicao);
+}
+.citem__x:hover { border-color: var(--vermelho); color: var(--vermelho-alto); }
+.carrinho__nota { display: flex; align-items: center; gap: .7rem; font-size: var(--t-meta); color: var(--tinta-3); }
+
+/* O resumo gruda ao rolar: numa lista longa, o total e o botão de fechar não
+   podem ficar a três rolagens de distância do item que a pessoa está olhando. */
+.resumo { position: sticky; top: 6rem; display: grid; gap: 1rem; }
+.resumo__l, .resumo__itens { display: grid; gap: .55rem; margin: 0; padding: 0; list-style: none; }
+.resumo__l > div, .resumo__itens > li {
+  display: flex; justify-content: space-between; gap: 1rem;
+  font-size: .92rem; color: var(--tinta-2);
+}
+.resumo__itens > li span:first-child { min-width: 0; }
+.resumo__total {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+  padding-top: .9rem; border-top: 1px solid var(--linha);
+  font-family: var(--fonte-titulo); font-weight: var(--peso-forte);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.resumo__nota { font-size: var(--t-mini); color: var(--tinta-3); line-height: 1.6; }
+.resumo__nota a { color: var(--vermelho-alto); }
+
+.vazio { text-align: center; display: grid; justify-items: center; gap: .4rem; padding-block: 3rem; }
+.vazio .eng { color: var(--linha-viva); margin-bottom: 1rem; }
+.vazio .sub { margin-inline: auto; }
+.vazio .hero__acoes { justify-content: center; }
+
+/* ----------------------------------------------------------- escolhas */
+.escolhas { display: grid; gap: .6rem; margin-top: 1rem; }
+.escolha { display: block; cursor: pointer; }
+.escolha input { position: absolute; opacity: 0; pointer-events: none; }
+.escolha__c {
+  display: grid; gap: .2rem; padding: .95rem 1.1rem .95rem 2.9rem; position: relative;
+  border: 1px solid var(--linha); border-radius: var(--raio-p); background: var(--grafite-3);
+  transition: border-color var(--transicao), background var(--transicao);
+}
+.escolha__c::before {
+  content: ""; position: absolute; left: 1.05rem; top: 1.15rem;
+  width: 1.05rem; height: 1.05rem; border-radius: 50%;
+  border: 2px solid var(--linha-viva); transition: border-color var(--transicao);
+}
+.escolha input:checked + .escolha__c { border-color: var(--vermelho); background: rgba(229,0,0,.10); }
+.escolha input:checked + .escolha__c::before { border-color: var(--vermelho); border-width: 6px; }
+.escolha input:focus-visible + .escolha__c { outline: 2px solid var(--vermelho-luz); outline-offset: 2px; }
+.escolha__c strong { font-family: var(--fonte-titulo); text-transform: uppercase;
+  letter-spacing: .03em; font-size: .9rem; color: var(--branco); }
+.escolha__c span { font-size: .88rem; color: var(--tinta-2); }
+
+/* ----------------------------------------------------------------- Pix */
+.pix__in { display: flex; flex-wrap: wrap; gap: 1.4rem; margin-top: 1.2rem; align-items: flex-start; }
+.pix__qr { flex: 0 0 auto; padding: .7rem; border-radius: var(--raio-p); background: #FFFFFF; }
+.pix__qr .qr { display: block; }
+.pix__lado { flex: 1 1 16rem; display: grid; gap: .8rem; }
+.pix__codigo {
+  font-family: var(--fonte-dado); font-size: .74rem; line-height: 1.5;
+  word-break: break-all; resize: none; min-height: 0;
+}
+
+/* ==========================================================================
+   BLOG
+   ========================================================================== */
+.post { display: flex; flex-direction: column; }
+.post__pe { margin-top: auto; padding-top: 1.2rem; font-size: var(--t-mini);
+  color: var(--tinta-3); font-weight: 500; letter-spacing: .04em; }
+
+.artigo__topo { margin-bottom: 2.4rem; padding-bottom: 1.8rem; border-bottom: 1px solid var(--linha); }
+.artigo__topo .titulo { font-size: clamp(1.8rem, 1.3rem + 2.2vw, 2.9rem); }
+.artigo__meta { margin-top: 1.1rem; font-size: var(--t-meta); color: var(--tinta-3); font-weight: 500; }
+
+/* O corpo do artigo é o único lugar do site onde o texto vem formatado do
+   painel. As regras ficam sob `.artigo__corpo` para não vazarem para o resto:
+   um `h2 { margin-top }` global mexeria em toda seção do site. */
+.artigo__corpo { color: var(--tinta-2); font-size: 1.05rem; line-height: 1.75; }
+.artigo__corpo > * + * { margin-top: 1.1rem; }
+.artigo__corpo h2 {
+  margin-top: 2.6rem; font-size: var(--t-h3); color: var(--branco);
+  text-transform: none; letter-spacing: -.01em;
+}
+.artigo__corpo h3 { margin-top: 2rem; font-size: 1.1rem; color: var(--branco); text-transform: none; }
+.artigo__corpo ul, .artigo__corpo ol { padding-left: 1.4rem; display: grid; gap: .5rem; }
+.artigo__corpo li::marker { color: var(--vermelho); }
+.artigo__corpo strong { color: var(--tinta); }
+.artigo__corpo a { color: var(--vermelho-alto); }
+.artigo__corpo blockquote {
+  padding: 1rem 1.3rem; border-left: 3px solid var(--vermelho);
+  background: var(--grafite-2); border-radius: 0 var(--raio-p) var(--raio-p) 0;
+}
+.artigo__cta { margin-top: 3rem; }
+
+/* ==========================================================================
+   ACOMPANHAR O CONSERTO
+   ========================================================================== */
+.campo__ent--codigo {
+  font-family: var(--fonte-dado); font-size: 1.15rem; letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.os-topo__in {
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; justify-content: space-between;
+}
+.os-estado {
+  flex: 0 0 auto; padding: .5rem 1rem; border-radius: 999px;
+  font-family: var(--fonte-dado); font-size: var(--t-mini); font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.os-estado--sim { background: var(--vermelho); color: var(--branco); }
+.os-estado--nao { background: var(--grafite-3); color: var(--tinta-3); }
+
+/* A trilha vertical. A etapa atual acende e a engrenagem gira nela — é o mesmo
+   desenho das quatro etapas da home, de propósito: quem viu lá reconhece aqui,
+   e reconhecer, para quem está sem o celular há dois dias, vale mais que uma
+   ilustração nova. */
+.trilha { list-style: none; padding: 0; margin-top: 1.2rem; display: grid; }
+.passo { position: relative; display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem;
+  padding-bottom: 1.5rem; }
+.passo:last-child { padding-bottom: 0; }
+/* O fio que liga as bolinhas. Ele não existe no último passo, senão apontaria
+   para o nada abaixo do fim. */
+.passo::before {
+  content: ""; position: absolute; left: 1.15rem; top: 2.4rem; bottom: 0;
+  width: 2px; background: var(--linha);
+}
+.passo:last-child::before { display: none; }
+.passo--feita::before { background: var(--vermelho); }
+
+.passo__bolha {
+  position: relative; z-index: 1; display: grid; place-items: center;
+  width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  border: 2px solid var(--linha); background: var(--grafite);
+  color: var(--tinta-3); font-size: 1rem;
+}
+.passo--feita .passo__bolha { border-color: var(--vermelho); background: var(--vermelho); color: var(--branco); }
+.passo--agora .passo__bolha {
+  border-color: var(--vermelho); color: var(--vermelho);
+  box-shadow: 0 0 0 5px rgba(229,0,0,.14);
+}
+.passo__c { padding-top: .2rem; }
+.passo__t { font-size: 1rem; }
+.passo--futura .passo__t { color: var(--tinta-3); }
+.passo__d { margin-top: .25rem; color: var(--tinta-2); font-size: .93rem; }
+.passo--futura .passo__d { color: var(--tinta-3); }
+.passo__q { display: block; margin-top: .3rem; font-size: var(--t-mini); color: var(--tinta-3); font-weight: 500; }
+
+/* ==========================================================================
+   CONTATO
+   ========================================================================== */
+.contato-grade {
+  display: grid; gap: clamp(1.6rem, 1rem + 3vw, 3rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: start;
+}
+@media (max-width: 860px) { .contato-grade { grid-template-columns: 1fr; } }
+.contato-end { font-style: normal; margin-top: 1.4rem; color: var(--tinta-2); line-height: 1.8; }
+.contato-end span { color: var(--tinta-3); font-size: .93rem; }
+
+/* ==========================================================================
+   FOTOGRAFIA
+
+   O site é escuro e a marca é vermelha; foto de banco é clara, colorida e vem
+   de doze fotógrafos diferentes. Sem tratamento, cada uma puxa a página para
+   um lado e o conjunto parece um mural, não um site.
+
+   O tratamento é um só, aplicado a TODA foto de conteúdo — e é o que faz
+   material de banco parecer material da casa:
+
+     · dessatura um pouco e escurece, para o vermelho da marca continuar sendo
+       a coisa mais viva da tela;
+     · uma camada de grafite por cima, que amarra a foto ao fundo;
+     · no hover, a foto volta ao natural e sobe — a cor voltando é o sinal de
+       que aquilo ali é clicável.
+
+   `aspect-ratio` em toda foto: sem ele a grade pula quando cada imagem chega,
+   e pular é o que faz uma página parecer mal feita mesmo estando certa.
+   ========================================================================== */
+.foto, .serv__capa, .post__capa, .capa__foto, .artigo__capa,
+.garantia__foto, .contato-foto, .coleta__foto, .capa-serv__foto {
+  position: relative; overflow: hidden; margin: 0;
+  background: var(--grafite-3);
+}
+.foto img, .serv__capa img, .post__capa img, .capa__foto img, .artigo__capa img,
+.garantia__foto img, .contato-foto img, .coleta__foto img, .capa-serv__foto img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  filter: saturate(.82) brightness(.86) contrast(1.05);
+  transition: filter var(--transicao-l), scale var(--transicao-l);
+}
+/* O véu de grafite. `mix-blend-mode` em vez de opacidade chapada: ele escurece
+   as sombras e preserva o brilho, em vez de deixar a foto leitosa. */
+.foto::after, .serv__capa::after, .post__capa::after, .capa__foto::after,
+.artigo__capa::after, .garantia__foto::after, .contato-foto::after,
+.coleta__foto::after, .capa-serv__foto::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(11,12,14,.10), rgba(11,12,14,.62));
+}
+
+/* -------------------------------------------------- capa do cartão de serviço */
+.serv__capa { aspect-ratio: 16 / 10; border-radius: var(--raio-p); margin-bottom: -2.2rem; }
+.serv--foto .serv__ico { position: relative; z-index: 1; }
+.serv--foto:hover .serv__capa img { filter: none; scale: 1.05; }
+
+/* -------------------------------------------------------- capa do cartão do blog */
+.post__capa { aspect-ratio: 16 / 10; border-radius: var(--raio-p); margin-bottom: 1.1rem; }
+.post--foto:hover .post__capa img { filter: none; scale: 1.05; }
+.post--foto .selo { margin-top: 0; }
+
+/* --------------------------------------------------- capa da página do serviço */
+.capa-serv__foto {
+  flex: 0 0 auto; width: clamp(11rem, 26vw, 20rem); aspect-ratio: 4 / 3;
+  border-radius: var(--raio-g); border: 1px solid var(--linha);
+}
+@media (max-width: 760px) { .capa-serv__foto { display: none; } }
+
+/* ------------------------------------------------------ foto larga de capa */
+.capa__foto, .artigo__capa {
+  aspect-ratio: 21 / 9; border-radius: var(--raio); margin-block: 2rem;
+  border: 1px solid var(--linha);
+}
+.artigo__capa { margin-top: 0; margin-bottom: 2.4rem; }
+
+/* ----------------------------------------------------------- busca e leva */
+.coleta__foto {
+  width: 100%; aspect-ratio: 4 / 3; border-radius: var(--raio-g);
+  border: 1px solid var(--linha); display: grid; place-items: center;
+}
+.coleta__foto img { position: absolute; inset: 0; }
+/* O pulso fica ACIMA do véu, senão ele some junto com a foto escurecida. */
+.coleta__foto .pulso { position: relative; z-index: 2; width: 60%; }
+
+.faixa { position: relative; }
+/* A faixa vermelha ganha a mesma foto ao fundo, bem apagada: ela dá lugar e
+   movimento sem competir com o texto, que aqui é o que precisa ser lido. */
+.faixa__fundo {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: .16; filter: saturate(.5) contrast(1.1); pointer-events: none;
+}
+.faixa__in { position: relative; z-index: 1; }
+
+/* -------------------------------------------------------------- garantia */
+.garantia {
+  display: grid; gap: clamp(1.6rem, 1rem + 3vw, 3rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center;
+  margin-bottom: 1rem;
+}
+@media (max-width: 860px) { .garantia { grid-template-columns: 1fr; } }
+.garantia__foto { aspect-ratio: 3 / 2; border-radius: var(--raio-g); border: 1px solid var(--linha); }
+
+/* --------------------------------------------------------------- contato */
+.contato-foto { aspect-ratio: 3 / 2; border-radius: var(--raio); border: 1px solid var(--linha); }
+
+/* ==========================================================================
+   A FOTO DENTRO DA TELA DO APARELHO
+
+   O topo mostra a oficina trabalhando DENTRO do celular. A varredura de luz
+   passa por cima dela — o aparelho acendendo é a marca em uma peça.
+   ========================================================================== */
+.fone__foto {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  filter: saturate(.75) brightness(.72) contrast(1.08);
+}
+/* O véu vermelho por cima: é ele que faz a foto pertencer à marca em vez de
+   ser uma foto qualquer colada dentro de um desenho. */
+.fone__tela::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(200deg, rgba(229,0,0,.22), rgba(11,12,14,.55) 65%);
+}
+.fone__luz { z-index: 2; }
+
+/* ==========================================================================
+   PRODUTO — a foto real substitui o desenho da categoria
+
+   `object-fit: cover` com proporção fixa: fotos de banco chegam em formatos
+   diferentes, e sem isso a grade de quatro colunas fica com cartões de
+   alturas diferentes.
+   ========================================================================== */
+.prod img.prod__img, .prod-detalhe__foto img.prod__img {
+  object-fit: cover;
+  filter: saturate(.9) brightness(.92);
+  transition: filter var(--transicao-l), scale var(--transicao-l);
+}
+.prod:hover img.prod__img { filter: none; scale: 1.04; }
+.citem img.prod__img { object-fit: cover; }

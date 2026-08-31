@@ -1,0 +1,32 @@
+# ==========================================================================
+# O que NÃO vai para o repositório
+#
+# Todo caminho aqui começa com barra ou tem barra no meio, e isso é decisão,
+# não estilo: um padrão solto como `dados/` casa com QUALQUER pasta de mesmo
+# nome em qualquer profundidade — em outro projeto do parque isso engoliu
+# `src/infra/dados/`, código inteiro sumiu do repositório e só o clone feito no
+# servidor descobriu. Padrão ancorado só casa onde se pretendia.
+# ==========================================================================
+
+/node_modules/
+
+# Segredos: chave Pix, endereço público, tokens. Nunca no repositório.
+/.env
+/.env.*
+
+# O banco é do cliente. As cópias de segurança também.
+/data/
+/backups/
+
+# Fotos de banco de imagem: 2,8 MB de binário que nunca muda e que o
+# `ferramentas/baixar-imagens.cjs` refaz em segundos. O que fica versionado é a
+# LISTA (o script) e os créditos — que são o que realmente importa manter.
+/assets/img/banco/*.webp
+/assets/img/banco/conferir.html
+
+# Enviados pelo painel: são conteúdo do cliente, não código.
+/assets/img/uploads/
+
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,22 @@
+{
+  "name": "alafcell-assistec",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Alafcell Assistec — assistência técnica de celulares e loja de aparelhos, acessórios e periféricos. Caruaru/PE.",
+  "main": "server.js",
+  "scripts": {
+    "backup": "node ferramentas/backup.cjs",
+    "imagens": "node ferramentas/baixar-imagens.cjs",
+    "semear": "node ferramentas/semear.cjs",
+    "start": "node server.js",
+    "test": "node testes/provar.cjs",
+    "usuario": "node ferramentas/usuario.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "qrcode": "^1.5.4"
+  }
+}

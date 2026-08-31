@@ -1,0 +1,13 @@
+[Unit]
+Description=Cópia diária do banco da Alafcell
+
+[Timer]
+# 03:40, e não 03:00 em ponto: o servidor tem vários sites, e todos rodando na
+# hora cheia fazem o disco brigar consigo mesmo. O RandomizedDelay espalha mais
+# um pouco, e Persistent recupera a execução que caiu com a máquina desligada.
+OnCalendar=*-*-* 03:40:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

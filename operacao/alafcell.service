@@ -1,0 +1,54 @@
+[Unit]
+Description=Alafcell Assistec — site, loja e painéis
+Documentation=file:///var/www/projetos/Alafcell-Assistec/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/var/www/projetos/Alafcell-Assistec
+Environment=NODE_ENV=production
+Environment=PORT=5202
+Environment=HOST=127.0.0.1
+# O endereço público (canonical, JSON-LD, sitemap, robots) vive fora do
+# repositório. O `-` na frente faz o serviço subir mesmo sem o arquivo — com os
+# valores padrão, que apontam para o subdomínio de trabalho.
+EnvironmentFile=-/var/www/projetos/Alafcell-Assistec/.env
+ExecStart=/usr/bin/node server.js
+
+Restart=always
+RestartSec=3
+# Não desiste depois de N tentativas: um serviço que "desistiu" às 4h da manhã
+# só é notado às 8h, com o site fora do ar a manhã inteira.
+StartLimitIntervalSec=0
+
+# ==========================================================================
+# CONTENÇÃO
+#
+# O processo escreve em TRÊS lugares e mais nada: o banco, as cópias e as fotos
+# baixadas. ProtectSystem=strict deixa o resto do disco somente-leitura, então
+# uma falha no código não consegue reescrever o próprio server.js.
+#
+# NÃO existe MemoryDenyWriteExecute aqui, e é DE PROPÓSITO: essa trava mata o
+# compilador do V8 com "5/TRAP" alguns segundos depois de subir. O sintoma
+# parece queda de rede e já custou uma tarde de investigação em outro projeto
+# do parque.
+# ==========================================================================
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/www/projetos/Alafcell-Assistec/data
+ReadWritePaths=/var/www/projetos/Alafcell-Assistec/backups
+ReadWritePaths=/var/www/projetos/Alafcell-Assistec/assets/img/banco
+ReadWritePaths=/var/www/projetos/Alafcell-Assistec/assets/img/uploads
+
+SyslogIdentifier=alafcell
+
+[Install]
+WantedBy=multi-user.target
