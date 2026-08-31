@@ -44,6 +44,25 @@ verde() { printf '\033[1;32m%s\033[0m\n' "$*"; }
 amar()  { printf '\033[1;33m%s\033[0m\n' "$*"; }
 erro()  { printf '\033[1;31m%s\033[0m\n' "$*" >&2; }
 
+# ==========================================================================
+# NÃO RODE ISTO COMO ROOT
+#
+# `sudo npm ci` faz o root virar dono de node_modules/ — e a entrega SEGUINTE,
+# feita pelo usuário `deploy`, não consegue mais escrever ali. O erro só
+# aparece no deploy de amanhã, longe da causa.
+#
+# O único passo que precisa de raiz é o `systemctl restart`, e ele já pede
+# sudo sozinho, na linha dele.
+# ==========================================================================
+if [ "$(id -u)" -eq 0 ]; then
+  erro "Não rode o deploy como root (nem com sudo)."
+  erro "Rode como o usuário dono do código:  sudo -u deploy ./deploy.sh"
+  erro ""
+  erro "Se já rodou com sudo, devolva a posse antes:"
+  erro "  sudo chown -R deploy:deploy \"$RAIZ\""
+  exit 1
+fi
+
 azul "── Alafcell · deploy ────────────────────────────────"
 
 # ---------------------------------------------------------------- 1. backup

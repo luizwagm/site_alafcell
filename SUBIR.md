@@ -27,6 +27,17 @@ cd /var/www/projetos/Alafcell-Assistec
 sudo -u deploy npm ci --omit=dev
 ```
 
+> **Sem `sudo` puro no npm.** `sudo npm ci` faz o **root** virar dono de
+> `node_modules/`, e a partir daí o usuário `deploy` não consegue mais escrever
+> ali — o erro só aparece na entrega seguinte, longe da causa. É sempre
+> `sudo -u deploy`. Se já aconteceu, devolva a posse:
+>
+> ```bash
+> sudo chown -R deploy:deploy /var/www/projetos/Alafcell-Assistec
+> ```
+>
+> O `deploy.sh` recusa rodar como root justamente por isso.
+
 ## 2. As fotos
 
 Elas não vão no repositório — 2,8 MB de binário que nunca muda. O script baixa

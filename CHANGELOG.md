@@ -4,6 +4,25 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.3.1 — 31/08/2026
+
+Correções apontadas pela primeira subida ao servidor.
+
+- **`npm ci` falhava com "package.json and package-lock.json are in sync".** O
+  `package-lock.json` tinha vindo copiado de outro projeto do parque e só teve o
+  cabeçalho ajustado — a árvore do `qrcode` (29 pacotes) nunca entrou nele.
+  Refeito com `npm install --package-lock-only`, e **provado com um `npm ci` de
+  verdade numa pasta limpa**, que é o único jeito de saber que funciona.
+  A versão agora sobe no `package.json` **e no lock** juntos: divergir os dois
+  reproduz o mesmo erro.
+- **O `deploy.sh` recusa rodar como root.** `sudo npm ci` faz o root virar dono
+  de `node_modules/`, e a entrega seguinte, feita pelo usuário `deploy`, não
+  consegue mais escrever ali — o erro aparece no deploy de amanhã, longe da
+  causa. A mensagem já vem com o `chown` de conserto.
+- `SUBIR.md` avisa o mesmo no passo do clone.
+
+---
+
 ## 0.3.0 — 31/08/2026
 
 Fotografia no site inteiro, e a operação para subir ao servidor.
