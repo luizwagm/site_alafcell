@@ -24,8 +24,11 @@
 /assets/img/banco/*.webp
 /assets/img/banco/conferir.html
 
-# Enviados pelo painel: são conteúdo do cliente, não código.
-/assets/img/uploads/
+# Enviados pelo painel: são conteúdo do cliente, não código. O `.gitkeep` é a
+# exceção, e ele tem razão de ser: a PASTA precisa existir no clone, senão o
+# `ReadWritePaths` da unidade do systemd derruba o serviço com 226/NAMESPACE.
+/assets/img/uploads/*
+!/assets/img/uploads/.gitkeep
 
 *.log
 .DS_Store

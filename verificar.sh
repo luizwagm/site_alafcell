@@ -32,6 +32,31 @@ codigo() { curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$ALVO$1"; }
 
 echo "── Alafcell · verificação de $ALVO ──"
 
+# ==========================================================================
+# O SITE ESTÁ DE PÉ?
+#
+# Sem esta porta de entrada, um site FORA DO AR produzia 27 linhas vermelhas
+# — e algumas delas MENTIAM: com o curl devolvendo vazio, o teste do robots
+# caía no ramo "indexável" e o dos arquivos expostos acusava vazamento de
+# `/server.js`. Vinte e sete problemas onde havia UM, e dois deles inventados.
+#
+# Diagnóstico em cascata só confunde. Se a porta não abre, o resto não é
+# pergunta que faça sentido.
+# ==========================================================================
+INICIAL=$(codigo "/saude")
+if [ "$INICIAL" = "000" ]; then
+  echo
+  vermelho "o site não respondeu em $ALVO — nada foi conferido."
+  echo
+  echo "  Onde olhar, nesta ordem:"
+  echo "    sudo systemctl status alafcell --no-pager"
+  echo "    sudo journalctl -u alafcell -n 40 --no-pager"
+  echo "    curl -sI http://127.0.0.1:5202/saude      # a aplicação em si"
+  echo "    sudo nginx -T | grep -A3 'server_name.*alafcell'   # o vhost"
+  echo
+  exit 1
+fi
+
 # ------------------------------------------------------------ as páginas
 azul "Páginas"
 for R in / /consertos/ /consertos/troca-de-tela/ /busca-e-leva/ /loja/ /loja/seminovos/ \

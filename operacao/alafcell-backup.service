@@ -14,7 +14,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/www/projetos/Alafcell-Assistec/data
-ReadWritePaths=/var/www/projetos/Alafcell-Assistec/backups
+# O `-` na frente: pasta que não existe derrubaria a unidade com 226/NAMESPACE,
+# e a mensagem não diz que o problema é uma pasta.
+ReadWritePaths=-/var/www/projetos/Alafcell-Assistec/data
+ReadWritePaths=-/var/www/projetos/Alafcell-Assistec/backups
 
 SyslogIdentifier=alafcell-backup

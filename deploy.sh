@@ -65,6 +65,19 @@ fi
 
 azul "── Alafcell · deploy ────────────────────────────────"
 
+# ==========================================================================
+# AS PASTAS DE ESCRITA PRECISAM EXISTIR ANTES DO SERVIÇO
+#
+# `ReadWritePaths` do systemd exige caminho existente. Faltando uma delas, o
+# serviço morre com `226/NAMESPACE` e "Failed to set up mount namespacing" —
+# mensagem que não menciona pasta nenhuma. E o processo não consegue criar
+# sozinho: sob `ProtectSystem=strict` o pai está somente-leitura.
+#
+# `data/` e `backups/` ficam fora do repositório (são do cliente), então o
+# clone não as traz. Aqui é o lugar de criá-las.
+# ==========================================================================
+mkdir -p data backups assets/img/banco assets/img/uploads
+
 # ---------------------------------------------------------------- 1. backup
 # ANTES de qualquer coisa. Se a migração de esquema der errado, o que salva é a
 # cópia de agora — não a de ontem de madrugada.

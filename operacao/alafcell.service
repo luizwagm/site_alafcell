@@ -4,6 +4,19 @@ Documentation=file:///var/www/projetos/Alafcell-Assistec/README.md
 After=network-online.target
 Wants=network-online.target
 
+# ==========================================================================
+# ESTA LINHA FICA NO [Unit], E NÃO NO [Service]
+#
+# Desde o systemd 229 o limite de reinícios pertence à seção [Unit]. Posto em
+# [Service] ele não dá erro: o systemd escreve "Unknown key name … ignoring" no
+# journal e SEGUE — ou seja, a proteção simplesmente não existe, e ninguém
+# percebe até o serviço desistir de reiniciar de madrugada.
+#
+# Zero = não desiste nunca. Um serviço que "desistiu" às 4h só é notado às 8h,
+# com o site fora do ar a manhã inteira.
+# ==========================================================================
+StartLimitIntervalSec=0
+
 [Service]
 Type=simple
 User=deploy
@@ -20,16 +33,23 @@ ExecStart=/usr/bin/node server.js
 
 Restart=always
 RestartSec=3
-# Não desiste depois de N tentativas: um serviço que "desistiu" às 4h da manhã
-# só é notado às 8h, com o site fora do ar a manhã inteira.
-StartLimitIntervalSec=0
 
 # ==========================================================================
 # CONTENÇÃO
 #
-# O processo escreve em TRÊS lugares e mais nada: o banco, as cópias e as fotos
-# baixadas. ProtectSystem=strict deixa o resto do disco somente-leitura, então
-# uma falha no código não consegue reescrever o próprio server.js.
+# O processo escreve em QUATRO lugares e mais nada. ProtectSystem=strict deixa
+# o resto do disco somente-leitura, então uma falha no código não consegue
+# reescrever o próprio server.js.
+#
+# O `-` na frente de cada caminho NÃO é enfeite: sem ele, uma pasta que não
+# existe derruba o serviço com `226/NAMESPACE` e "Failed to set up mount
+# namespacing" — mensagem que não menciona em lugar nenhum que o problema é
+# uma pasta faltando. E o processo não consegue criá-la sozinho, porque o pai
+# está somente-leitura.
+#
+# O `-` evita a queda; quem garante que as pastas EXISTEM é o `deploy.sh` (e o
+# `.gitkeep` em uploads/). As duas defesas são necessárias: a de cá para o
+# serviço subir, a de lá para ele conseguir gravar.
 #
 # NÃO existe MemoryDenyWriteExecute aqui, e é DE PROPÓSITO: essa trava mata o
 # compilador do V8 com "5/TRAP" alguns segundos depois de subir. O sintoma
@@ -43,10 +63,10 @@ ProtectHome=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=/var/www/projetos/Alafcell-Assistec/data
-ReadWritePaths=/var/www/projetos/Alafcell-Assistec/backups
-ReadWritePaths=/var/www/projetos/Alafcell-Assistec/assets/img/banco
-ReadWritePaths=/var/www/projetos/Alafcell-Assistec/assets/img/uploads
+ReadWritePaths=-/var/www/projetos/Alafcell-Assistec/data
+ReadWritePaths=-/var/www/projetos/Alafcell-Assistec/backups
+ReadWritePaths=-/var/www/projetos/Alafcell-Assistec/assets/img/banco
+ReadWritePaths=-/var/www/projetos/Alafcell-Assistec/assets/img/uploads
 
 SyslogIdentifier=alafcell
 

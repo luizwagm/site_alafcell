@@ -1,0 +1,12 @@
+Esta pasta precisa EXISTIR no clone, mesmo vazia.
+
+O `ReadWritePaths` da unidade do systemd exige que o caminho exista: com a
+pasta faltando, o serviço nem sobe — morre com `226/NAMESPACE` e
+"Failed to set up mount namespacing", que não diz em lugar nenhum que o
+problema é uma pasta.
+
+E o processo não consegue criá-la sozinho: sob `ProtectSystem=strict` o resto
+do disco é somente-leitura, então `assets/img/` não aceita escrita.
+
+O conteúdo enviado pelo painel é ignorado pelo .gitignore — só este arquivo
+fica versionado, e é ele que faz a pasta viajar junto com o código.

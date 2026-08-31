@@ -47,6 +47,22 @@ e confere a assinatura de cada arquivo:
 sudo -u deploy node ferramentas/baixar-imagens.cjs
 ```
 
+## 2b. As pastas de escrita
+
+`data/` e `backups/` ficam fora do repositório (são do cliente), então o clone
+não as traz. E o `ReadWritePaths` da unidade **exige caminho existente**: com
+uma delas faltando, o serviço morre com `226/NAMESPACE` e "Failed to set up
+mount namespacing" — mensagem que não menciona pasta nenhuma. O processo
+também não consegue criá-las: sob `ProtectSystem=strict` o pai está
+somente-leitura.
+
+```bash
+sudo -u deploy mkdir -p data backups assets/img/banco assets/img/uploads
+```
+
+O `deploy.sh` faz isso sozinho a cada entrega; aqui é porque o serviço ainda
+não subiu nenhuma vez.
+
 ## 3. O serviço
 
 ```bash

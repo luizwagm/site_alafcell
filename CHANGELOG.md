@@ -4,6 +4,36 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.3.2 — 31/08/2026
+
+Três defeitos que só a primeira subida ao servidor mostra.
+
+- **O serviço não subia: `226/NAMESPACE`.** O `ReadWritePaths` do systemd exige
+  caminho existente, e `assets/img/uploads/` não vinha no clone. A mensagem
+  ("Failed to set up mount namespacing") não menciona pasta nenhuma, e o
+  processo não consegue criar sozinho — sob `ProtectSystem=strict` o pai está
+  somente-leitura. Três defesas agora: `.gitkeep` para a pasta viajar no clone,
+  `mkdir -p` no `deploy.sh`, e o prefixo `-` em cada `ReadWritePaths` para que
+  uma pasta faltando nunca mais derrube o serviço.
+
+- **`StartLimitIntervalSec` estava no `[Service]`, e era ignorado.** Desde o
+  systemd 229 a chave pertence ao `[Unit]`. No lugar errado ela não dá erro: o
+  journal escreve "Unknown key name … ignoring" e segue — a proteção
+  simplesmente não existia.
+
+- **Os `.sh` chegaram ao servidor sem o bit de execução.** O repositório está
+  numa máquina Windows com `core.fileMode=false`, então o git gravou modo 644.
+  Corrigido com `git update-index --chmod=+x` nos três scripts e nas
+  ferramentas.
+
+- **O verificador mentia com o site fora do ar.** Sem resposta do curl, o teste
+  do robots caía no ramo "indexável" e o dos arquivos expostos acusava
+  vazamento de `/server.js`: 27 problemas onde havia um, dois deles inventados.
+  Agora ele pergunta primeiro se o site responde e, se não, para com uma linha e
+  a lista de onde olhar.
+
+---
+
 ## 0.3.1 — 31/08/2026
 
 Correções apontadas pela primeira subida ao servidor.
