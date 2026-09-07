@@ -23,7 +23,7 @@ const L = require("./layout");
    sai como TEXTO, e um "<b>" gravado num campo do painel apareceria assim no
    resultado da busca. */
 const { semHtml } = require("./html-seguro");
-const { esc, engrenagem, zap } = L;
+const { esc, engrenagem, zap, linhas } = L;
 
 /* ==========================================================================
    QUANDO O TEXTO É INTERPRETADO E QUANDO É ESCAPADO
@@ -570,7 +570,7 @@ function home(req) {
     </div>
     ${temEndereco ? `
     <address class="fim__onde">
-      ${esc(endereco)}${horario && !/preencha/i.test(horario) ? `<br><span>${esc(horario)}</span>` : ""}
+      ${linhas(endereco)}${horario && !/preencha/i.test(horario) ? `<br><span>${linhas(horario)}</span>` : ""}
     </address>` : ""}
   </div>
 </section>`;
@@ -608,7 +608,11 @@ function home(req) {
    ========================================================================== */
 function jsonldLoja(perguntas = []) {
   const nome = txt("marca.nome", "Alafcell Assistec");
-  const rua = txt("loja.endereco", "");
+  /* `semHtml` e nao `linhas`: o `streetAddress` do Schema.org e um campo de
+     UMA linha, publicado pelo Google na ficha do negocio. Com `<p>` dentro,
+     era isso que ele leria — e o campo virou editor de texto na 0.8.0, entao
+     `<p>` e exatamente o que esta gravado. */
+  const rua = semHtml(txt("loja.endereco", ""));
   const preenchido = rua && !/preencha/i.test(rua);
 
   const ficha = {

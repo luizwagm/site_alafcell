@@ -19,7 +19,7 @@
       vai para o Google Meu Negócio e para o JSON-LD, e ninguém percebe que
       está errado até um cliente ir ao lugar errado.
    ========================================================================== */
-const { Q, ajuste } = require("./db");
+const { Q, ajuste, semearTexto } = require("./db");
 
 /* ==========================================================================
    TEXTOS
@@ -29,8 +29,16 @@ const { Q, ajuste } = require("./db");
    acha o telefone.
    ========================================================================== */
 function textos() {
+  /* `semearTexto` e NAO `ajuste`: esta funcao roda a cada entrega (o
+     `deploy.sh` chama `semear()`), e `ajuste` sobrescreve o valor. Com ele
+     aqui, toda entrega apagava o que o cliente tinha escrito no painel —
+     endereco, telefone, horario, os textos de todas as secoes — e ele
+     encontrava o padrao de volta no dia seguinte, sem nenhum aviso.
+
+     O metadado (rotulo, ajuda, grupo, ordem) continua sendo atualizado: ele e
+     nosso, e melhora a cada versao. O VALOR e do cliente. */
   const T = (chave, valor, grupo, rotulo, tipo = "texto", ordem = 0, ajuda = "") =>
-    ajuste(chave, valor, { grupo, rotulo, tipo, ordem, ajuda });
+    semearTexto(chave, valor, { grupo, rotulo, tipo, ordem, ajuda });
 
   /* ------------------------------------------------------------ a empresa */
   T("marca.nome", "Alafcell Assistec", "marca", "Nome da empresa", "texto", 1);
@@ -113,11 +121,15 @@ function textos() {
   T("google.rotulo", "O que dizem", "google", "Rótulo pequeno", "texto", 1);
   T("google.titulo", "Quem já passou por aqui <em>recomenda</em>", "google",
     "Título da seção", "texto", 2);
-  T("google.nota", "", "google", "Nota no Google", "texto", 3,
+  T("google.nota", "5,0", "google", "Nota no Google", "texto", 3,
     "Exemplo: 5,0. Deixe em branco para esconder o selo da nota.");
-  T("google.total", "", "google", "Quantas avaliações", "texto", 4,
+  T("google.total", "38", "google", "Quantas avaliações", "texto", 4,
     "Exemplo: 42. Aparece ao lado da nota.");
-  T("google.link", "", "google", "Link para as avaliações", "url", 5,
+  /* O LINK DA FICHA, pelo CID e nao pelo endereco longo do Maps: o CID
+     identifica o LUGAR e continua valendo quando o Google reescreve a URL —
+     e ele reescreve. */
+  T("google.link", "https://maps.google.com/?cid=1757333140515284266",
+    "google", "Link para as avaliações", "url", 5,
     "O endereço da sua ficha no Google. O selo vira link para ele.");
   T("google.place_id", "", "google", "Place ID da loja", "texto", 6,
     "O identificador da sua ficha no Google Maps — começa com \"ChIJ\". "
@@ -323,41 +335,55 @@ function aparelhos() {
 }
 
 /* ==========================================================================
-   AVALIACOES DE EXEMPLO
+   AS AVALIACOES DA FICHA DO GOOGLE
 
-   A secao de avaliacoes some da pagina quando nao ha nenhuma — o que e o certo
-   (melhor nao ter secao do que ter uma vazia), mas faz o trabalho parecer nao
-   feito para quem acabou de abrir o painel. Estas tres existem para a secao
-   nascer visivel e para o dono ver o formato antes de escrever os dele.
+   Nao sao exemplo: sao as tres primeiras de cinco estrelas da ficha
+   ALAFCELL ASSISTEC no Google (nota 5,0 com 38 avaliacoes), lidas em
+   07/09/2026. O texto e o que esta la.
 
-   O texto DIZ que e exemplo. Elogio inventado que passa por real e propaganda
-   enganosa; e se estiver marcado, apagar vira a coisa obvia a fazer em vez de
-   uma descoberta constrangedora depois de o site ja estar no ar.
+   So o PRIMEIRO NOME de quem avaliou: nome completo e foto sao dados de um
+   cliente que avaliou a LOJA, nao o site, e ninguem pediu autorizacao para
+   publica-los aqui.
+
+   `do_google: 1` porque foram copiadas da ficha — e por isso o cartao pode
+   dizer "Avaliacao no Google", uma afirmacao que qualquer visitante confere
+   clicando no selo.
+
+   ATE A 0.10.x AQUI HAVIA TRES DE EXEMPLO, com "(AVALIACAO DE EXEMPLO)" no
+   texto. Elas foram ao ar no servidor — o `deploy.sh` roda esta funcao a cada
+   entrega, e cadastrar as reais so no banco local nao muda nada para o
+   cliente. A limpeza abaixo as remove.
 
    Quando o Place ID e a chave da API forem preenchidos, estas somem sozinhas:
-   com a busca ligada, o site so mostra o que veio do Google.
+   com a busca ligada, o site so mostra o que veio direto do Google.
    ========================================================================== */
 function avaliacoesExemplo() {
   /* SO NUMA INSTALACAO NOVA. `semear()` roda a cada subida do servidor — as
      outras funcoes daqui se protegem do mesmo jeito. Sem esta linha, cada
      reinicio empilha mais tres avaliacoes iguais no site do cliente, e as que
      ele apagar voltam sozinhas na proxima subida. */
+  /* AS DE EXEMPLO SAEM. Elas ja subiram para o servidor com o texto
+     "(AVALIACAO DE EXEMPLO — troque ou apague no painel)" a mostra na pagina.
+     Sao registros SEMEADOS POR NOS, com marca propria no texto — nao conteudo
+     do cliente. Selecionados pela marca, apagados PELO ID, um a um. */
+  for (const velha of Q.todos(
+    "SELECT id FROM avaliacoes WHERE texto LIKE '%AVALIACAO DE EXEMPLO%'")) {
+    Q.roda("DELETE FROM avaliacoes WHERE id = ?", velha.id);
+  }
+
   if (Q.um("SELECT COUNT(*) c FROM avaliacoes").c) return;
 
   const ins = Q.db.prepare(
-    `INSERT INTO avaliacoes (autor, texto, estrelas, quando, ordem, ativo, criado)
-     VALUES (?,?,5,?,?,1,?)`);
+    `INSERT INTO avaliacoes (autor, texto, estrelas, quando, ordem, ativo, do_google, criado)
+     VALUES (?,?,5,?,?,1,1,?)`);
   const agora = new Date().toISOString();
   const base = [
-    ["Exemplo 1", "(AVALIACAO DE EXEMPLO — troque ou apague no painel) Deixei o "
-      + "celular de manha com a tela quebrada e peguei no fim da tarde novo em folha.",
-      "ha 2 semanas"],
-    ["Exemplo 2", "(AVALIACAO DE EXEMPLO — troque ou apague no painel) Passaram o "
-      + "orcamento antes de mexer, e o valor foi o combinado. Sem surpresa.",
-      "ha 1 mes"],
-    ["Exemplo 3", "(AVALIACAO DE EXEMPLO — troque ou apague no painel) Buscaram o "
-      + "aparelho aqui em casa e devolveram consertado no dia seguinte.",
-      "ha 2 meses"],
+    ["Cicero", "Ótimo ambiente, honesto e resolveu o problema do meu telefone.",
+      "há 2 meses"],
+    ["Robinho", "Muito bom trabalho. Estava ficando sem esperanças de recuperar o "
+      + "meu telefone. Com muita paciência e profissionalismo, o cara deu um jeito. "
+      + "Saí no mesmo dia com meu telefone.", "há 6 meses"],
+    ["Júnior", "Compro direto acessório e faço serviço. Muito bom.", "há 1 mês"],
   ];
   base.forEach(([autor, texto, quando], i) => ins.run(autor, texto, quando, i, agora));
 }

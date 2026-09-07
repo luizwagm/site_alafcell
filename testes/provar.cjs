@@ -525,7 +525,15 @@ ok("desativada sai da página", casaDesativada.includes("ZZ QA texto um"), false
 verdade("e a quarta entra no lugar dela", casaDesativada.includes("ZZ QA texto quatro"));
 
 /* --- o selo da nota --- */
-ok("sem nota preenchida, não há selo", casaCom.includes("selo-google"), false);
+/* O conteúdo inicial passou a trazer nota e link da ficha real da loja, então
+   estas duas provas precisam LIMPAR antes de afirmar "sem nota" e "sem link".
+   Antes elas herdavam o vazio do padrão — e um padrão que muda derruba prova
+   que dependia dele sem dizer por quê. */
+Adm.gravarTextos({ "google.nota": "", "google.total": "", "google.link": "" });
+/* RENDERIZAR DE NOVO. `casaCom` foi montado antes da limpeza — afirmar "sem
+   nota" sobre um HTML gerado quando a nota existia é testar outro estado. */
+const casaSemSelo = Pag.home({ headers: {}, url: "/" });
+ok("sem nota preenchida, não há selo", casaSemSelo.includes("selo-google"), false);
 ajuste("google.nota", "5,0");
 ajuste("google.total", "42");
 const comNota = Pag.home({ headers: {}, url: "/" });
@@ -646,11 +654,20 @@ Pub.publicar("ZZ QA");
   CONEXOES.push(dbNovo.Q.db);
   delete require.cache[require.resolve("../src/conteudo-inicial")];
   require("../src/conteudo-inicial").semear();
-  const ex = dbNovo.Q.todos("SELECT autor, texto, estrelas FROM avaliacoes ORDER BY ordem");
+  const ex = dbNovo.Q.todos("SELECT autor, texto, estrelas, do_google FROM avaliacoes ORDER BY ordem");
   ok("o conteúdo inicial traz três avaliações", ex.length, 3);
   ok("todas de cinco estrelas", ex.every((a) => a.estrelas === 5), true);
-  ok("e todas dizem no texto que são exemplo",
-     ex.every((a) => /EXEMPLO/i.test(a.texto)), true);
+  /* NÃO SÃO EXEMPLO: são as três primeiras de cinco estrelas da ficha do
+     Google da loja. Texto de exemplo foi ao ar no servidor uma vez — o
+     `deploy.sh` roda o conteúdo inicial a cada entrega, e cadastrar as reais
+     só no banco local não muda nada para o cliente. */
+  ok("nenhuma é texto de exemplo", ex.some((a) => /EXEMPLO/i.test(a.texto)), false);
+  ok("todas se creditam ao Google", ex.every((a) => Number(a.do_google) === 1), true);
+  verdade("com o texto da ficha", ex.some((a) => /esperanças de recuperar/.test(a.texto)));
+  /* Só o primeiro nome: o resto é dado pessoal de quem avaliou a LOJA. */
+  ok("só o primeiro nome de quem avaliou",
+     ex.every((a) => !/\s/.test(a.autor.trim())), true);
+
   /* `semear()` roda A CADA SUBIDA do servidor. Sem guarda, cada reinício
      empilha mais três avaliações iguais no site do cliente — e as que ele
      apagar voltam sozinhas no próximo reinício. Aconteceu de verdade: nove
@@ -659,6 +676,64 @@ Pub.publicar("ZZ QA");
   require("../src/conteudo-inicial").semear();
   ok("semear de novo não duplica nada",
      dbNovo.Q.um("SELECT COUNT(*) c FROM avaliacoes").c, 3);
+
+  /* ====================================================================
+     A ENTREGA NÃO PODE APAGAR O PAINEL DO CLIENTE
+
+     O `deploy.sh` roda `semear()` a cada entrega. Até a 0.11.1, `T()` usava
+     `ajuste()`, que SOBRESCREVE — e toda entrega devolvia endereço, telefone,
+     horário e os textos de todas as seções ao padrão.
+
+     O cliente preencheria o painel, veria o site certo, e encontraria
+     "Preencha o endereço no painel" de volta no dia seguinte. Sem erro, sem
+     aviso, sem nada no log: ele culparia o painel, e não teria como saber.
+
+     A divisão é por dono: o VALOR é dele, o RÓTULO é nosso.
+     ==================================================================== */
+  {
+    dbNovo.Q.roda("UPDATE config SET valor = ? WHERE chave = ?",
+      "ZZ Rua do Cliente, 100", "loja.endereco");
+    dbNovo.Q.roda("UPDATE config SET valor = ? WHERE chave = ?",
+      "<p>ZZ texto que o dono escreveu</p>", "home.texto");
+    /* duas entregas seguidas */
+    require("../src/conteudo-inicial").semear();
+    require("../src/conteudo-inicial").semear();
+    const leia = (c) => dbNovo.Q.um("SELECT valor, rotulo FROM config WHERE chave = ?", c);
+    ok("o endereço do cliente sobrevive à entrega",
+       leia("loja.endereco").valor, "ZZ Rua do Cliente, 100");
+    ok("e o texto da home também",
+       leia("home.texto").valor, "<p>ZZ texto que o dono escreveu</p>");
+    /* O rótulo é NOSSO: descreve o campo no painel e precisa poder melhorar a
+       cada versão. Congelá-lo junto com o valor deixaria o painel preso à
+       primeira redação para sempre.
+
+       ESTRAGAR O RÓTULO ANTES é o que torna esta prova capaz de ver alguma
+       coisa: ele já vinha certo do primeiro `semear()`, então conferi-lo sem
+       mexer passava mesmo com a atualização desligada. */
+    dbNovo.Q.roda("UPDATE config SET rotulo = ? WHERE chave = ?",
+      "ZZ rotulo velho", "loja.endereco");
+    require("../src/conteudo-inicial").semear();
+    ok("mas o rótulo do campo É atualizado pela entrega",
+       leia("loja.endereco").rotulo, "Endereço completo");
+    ok("e o valor do cliente continua intacto",
+       leia("loja.endereco").valor, "ZZ Rua do Cliente, 100");
+  }
+  /* O servidor JÁ TEM as de exemplo no ar. O conteúdo inicial precisa
+     removê-las — senão o site do cliente continua mostrando
+     "(AVALIACAO DE EXEMPLO)" para sempre, porque a função só insere quando a
+     tabela está vazia. */
+  {
+    const ins = dbNovo.Q.db.prepare(
+      "INSERT INTO avaliacoes (autor,texto,estrelas,quando,ordem,ativo) VALUES (?,?,5,?,?,1)");
+    dbNovo.Q.roda("DELETE FROM avaliacoes");
+    ins.run("Exemplo 1", "(AVALIACAO DE EXEMPLO — troque ou apague no painel) a", "x", 0);
+    /* E uma que o DONO cadastrou: essa não pode sumir. */
+    ins.run("ZZ Dona", "Avaliação que o dono escreveu", "y", 9);
+    require("../src/conteudo-inicial").semear();
+    const dep = dbNovo.Q.todos("SELECT autor FROM avaliacoes ORDER BY ordem").map((a) => a.autor);
+    ok("a de exemplo é removida", dep.includes("Exemplo 1"), false);
+    verdade("e a do dono continua", dep.includes("ZZ Dona"));
+  }
   dbNovo.Q.db.close();
   try { require("node:fs").unlinkSync(bancoNovo); } catch {}
   /* Devolver o módulo do banco ao estado da suíte, senão tudo abaixo escreve
@@ -688,6 +763,17 @@ ok("javascript: em link é recusado",
    olha o texto cru passa batido nele. */
 ok("javascript: com quebra no meio também",
    /javascript/i.test(HS.sanitizarHtml('<a href="java\nscript:alert(1)">x</a>')), false);
+/* `semHtml` alimenta o <title> da aba, o `alt` que o leitor de tela lê em voz
+   alta e o `streetAddress` que o Google publica na ficha do negócio. Até a
+   0.11.1 ele tirava a TAG e deixava o MIOLO: `<script>alert(1)</script>` virava
+   o texto "alert(1)" nesses três lugares. Inofensivo (sai escapado), e
+   constrangedor. */
+ok("semHtml leva o miolo do <script> junto",
+   /alert/.test(HS.semHtml("<p>Rua X</p><script>alert(1)</script>")), false);
+verdade("mas não come o texto de verdade",
+  HS.semHtml("<p>Rua X</p><script>alert(1)</script>").includes("Rua X"));
+ok("e o mesmo para <style>", /body/.test(HS.semHtml("Rua<style>body{}</style>")), false);
+
 ok("<iframe> some com o miolo junto",
    /iframe|malicioso/i.test(HS.sanitizarHtml("<iframe src=x>malicioso</iframe>")), false);
 ok("style não passa (dá para cobrir a tela e sequestrar o clique)",
@@ -726,6 +812,47 @@ const casaRica = Pag.home({ headers: {}, url: "/" });
 verdade("o site imprime o negrito, não a tag escrita",
   casaRica.includes("<b>negrito</b>"));
 ok("e não aparece escapado", casaRica.includes("&lt;b&gt;negrito"), false);
+
+/* --- DADO de várias linhas: endereço e horário --- */
+/* O campo virou editor de texto na 0.8.0 e o dono gravou `<p>` dentro. A seção
+   de contato imprimia com `esc()` e o visitante lia
+   `<p>Rua Benjamin Constant, 31, Casa A</p>` NA TELA; o rodapé interpretava. O
+   mesmo dado, dois comportamentos, na mesma página — e o JSON-LD levava a
+   marcação crua para o Google. */
+Adm.gravarTextos({
+  "loja.endereco": "<p>ZZ QA Rua Um, 31</p><p>Casa A</p>",
+  "loja.horario": "<p>09h - 18h</p>",
+});
+Pub.publicar("ZZ QA");
+const casaEnd = Pag.home({ headers: {}, url: "/" });
+
+ok("nenhuma tag aparece escrita na tela", /&lt;p&gt;/.test(casaEnd), false);
+verdade("o endereço sai limpo", casaEnd.includes("ZZ QA Rua Um, 31"));
+/* Endereço tem quebras que importam: juntar "Rua X, 31" com "Casa A" produz um
+   endereço que ninguém escreveria. */
+verdade("e a quebra vira <br>, não some", casaEnd.includes("ZZ QA Rua Um, 31<br>Casa A"));
+verdade("o horário também", casaEnd.includes("09h - 18h"));
+
+/* Os DOIS lugares que imprimem endereço — a seção de contato e o rodapé —
+   passaram a usar a mesma função. Antes divergiam. */
+ok("o endereço aparece igual nos dois lugares da página",
+   (casaEnd.match(/ZZ QA Rua Um, 31<br>Casa A/g) || []).length >= 2, true);
+
+/* O `streetAddress` é campo de UMA linha, publicado pelo Google na ficha do
+   negócio: nem marcação nem quebra. */
+{
+  const g = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(casaEnd)[1])["@graph"];
+  const loja = g.find((n) => JSON.stringify(n["@type"]).includes("LocalBusiness"));
+  const rua = (loja.address || {}).streetAddress || "";
+  ok("o Schema.org recebe o endereço sem marcação", /[<>]/.test(rua), false);
+  ok("e numa linha só", /\n/.test(rua), false);
+  verdade("com o endereço dentro", rua.includes("ZZ QA Rua Um, 31"));
+}
+
+/* Gravar também limpa: o campo é DADO, e o editor não deveria deixar `<p>` no
+   banco para a leitura ter de consertar toda vez. */
+verdade("a gravação já guarda limpo",
+  !/[<>]/.test(Q.um("SELECT valor FROM config WHERE chave = ?", "loja.endereco").valor));
 
 /* --- mas dentro de atributo, nunca --- */
 /* Uma aspa dentro de `alt=` fecha o atributo, e o resto do texto vira marcação

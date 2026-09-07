@@ -4,6 +4,99 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.11.1 — 07/09/2026 — TODA ENTREGA APAGAVA O PAINEL DO CLIENTE
+
+O defeito mais caro encontrado até aqui, e ele estava escondido atrás de um
+comentário que afirmava o contrário.
+
+O `deploy.sh` roda `semear()` a cada entrega, com a nota: *"acrescenta o que
+falta e não toca no que a loja já cadastrou"*. Isso vale para serviços,
+aparelhos e o FAQ, que têm guarda de "tabela vazia".
+
+**Não valia para os textos.** `T()` chamava `ajuste()`, que faz `UPDATE` do
+valor quando a chave existe. Endereço, telefone, horário, CNPJ, o conteúdo de
+todas as seções — **tudo voltava ao padrão na entrega seguinte.**
+
+O cliente preencheria o painel, veria o site certo, e encontraria "Preencha o
+endereço no painel" de volta no dia seguinte. Sem erro, sem aviso, sem nada no
+log. Ele culparia o painel — e não teria como saber.
+
+A correção separa por dono: o **valor** é do cliente (só entra quando o campo
+nasce); o **rótulo, a ajuda, o grupo e a ordem** são nossos (atualizam sempre,
+porque descrevem o campo no painel e precisam poder melhorar a cada versão).
+
+Apareceu porque o endereço que eu tinha gravado para testar sumiu sozinho entre
+dois comandos.
+
+### O endereço aparecia como `<p>Rua Benjamin Constant, 31, Casa A</p>`
+
+Duas coisas erradas ao mesmo tempo:
+
+O campo virou **editor de texto** na 0.8.0, então o que ficou gravado tem `<p>`
+dentro. Mas `loja.endereco` e `loja.horario` ficaram de fora da lista de campos
+de texto puro — ao contrário de cidade, UF, CEP e telefone, que estão lá.
+
+E o site tratava o mesmo dado de **dois jeitos**: a seção de contato escapava
+(mostrando a tag na tela) e o rodapé interpretava. Pior, o JSON-LD levava a
+marcação **crua** para o Google — `streetAddress` com `<p>` dentro.
+
+Endereço é **dado**, não texto corrido. Virou texto puro — mas não dá para usar
+`semHtml`, que junta tudo numa linha: "Rua X, 31" e "Casa A" são duas linhas, e
+juntá-las produz um endereço que ninguém escreveria. Entrou `emLinhas`, que
+troca as tags de bloco por quebras de verdade.
+
+Aplicado também na **leitura**, e não só na gravação: o valor no banco do
+cliente já tem `<p>`, e esperar que ele reabra e salve cada campo é esperar que
+o defeito se conserte sozinho.
+
+⚠ `emLinhas` **não era idempotente** na primeira versão: ele perdia as quebras
+do texto que ele mesmo tinha produzido, porque `semHtml` colapsa espaço em
+branco e `\n` é um deles. E gravar → ler é o caminho normal, não o excepcional.
+
+### `semHtml` deixava o miolo de `<script>` como texto
+
+`<script>alert(1)</script>` virava o **texto** "alert(1)". Não é furo de
+segurança — sai escapado —, mas `semHtml` alimenta justamente os lugares onde
+texto estranho aparece inteiro e ninguém revisa: o `<title>` da aba, o `alt`
+que um leitor de tela lê em voz alta, o `streetAddress` que o Google publica na
+ficha. `sanitizarHtml` já removia esses blocos com o miolo junto; duas funções
+do mesmo arquivo com políticas diferentes para a mesma ameaça.
+
+### As avaliações reais foram para o conteúdo inicial
+
+Elas estavam só no **meu banco local**. Quem popula o banco do servidor é o
+`conteudo-inicial.js`, rodado pelo `deploy.sh` — então o site do cliente
+continuava com "(AVALIACAO DE EXEMPLO)" no ar. Cadastrar no banco local e achar
+que o cliente vê o mesmo é o erro de fundo: o banco local não vai a lugar
+nenhum, o código vai.
+
+O conteúdo inicial agora traz as três da ficha, o selo com a nota (5,0), o
+total (38) e o link, **e remove as de exemplo que já subiram** — selecionadas
+pela marca no texto, apagadas pelo id, uma a uma. Uma avaliação que o dono tenha
+cadastrado não é tocada.
+
+### GitHub Actions: `Permission denied`, exit 126
+
+`./testes/vhost.sh` não roda no runner: o repositório está em Windows com
+`core.fileMode=false`, o git grava 644 e o clone recebe o arquivo sem bit de
+execução. Corrigido no índice com `git update-index --chmod=+x`, e o workflow
+passou a chamar `bash testes/vhost.sh` — imune ao problema, que já tinha mordido
+este projeto na primeira subida ao servidor.
+
+### Provas
+
+256 na suíte principal (eram 235). **Oito sabotagens**, e **duas passaram na
+primeira rodada** — as provas do rótulo e da limpeza do `<script>` eram cegas:
+
+- a do rótulo só conferia que ele não era a chave, e ele já vinha certo do
+  primeiro `semear()`. Para provar *atualização*, o rótulo precisa ser
+  **estragado antes**;
+- a limpeza do miolo não tinha prova nenhuma.
+
+Corrigidas, as oito são pegas.
+
+---
+
 ## 0.11.0 — 07/09/2026 — AS AVALIAÇÕES REAIS DO GOOGLE, E O SELO QUE LEVA A ELAS
 
 A ficha da loja no Google existe: **ALAFCELL ASSISTEC**, R. Benjamin Constant,

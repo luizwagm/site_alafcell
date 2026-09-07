@@ -221,6 +221,12 @@ function comoHtml(v) {
 /* HTML → texto puro. Para `<title>`, `<meta description>` e os campos do feed
    do portal, onde marcação apareceria literalmente na tela do visitante. */
 const semHtml = (h) => String(h || "")
+  /* TAGS QUE LEVAM O MIOLO JUNTO. Sem esta linha, `<script>alert(1)</script>`
+     virava o TEXTO "alert(1)" — inofensivo (sai escapado), mas indo parar
+     dentro do <title> da aba, do `alt` que um leitor de tela le em voz alta e
+     do `streetAddress` que o Google publica na ficha do negocio.
+     `sanitizarHtml` ja fazia isso; aqui faltava. */
+  .replace(/<(script|style|noscript|template|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
   .replace(/<br\s*\/?>/gi, " ")
   .replace(/<\/(p|div|h[1-6]|li|blockquote)>/gi, " ")
   .replace(/<[^>]+>/g, "")
@@ -228,4 +234,36 @@ const semHtml = (h) => String(h || "")
   .replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
   .replace(/\s+/g, " ").trim();
 
-module.exports = { sanitizarHtml, linhaUnica, semHtml, comoHtml, urlSegura, esc, TAGS_OK, ATRIB_OK };
+/* ==========================================================================
+   EM LINHAS — texto puro que PRESERVA as quebras
+
+   `semHtml` junta tudo numa linha so, o que e certo para `alt`, `<title>` e
+   JSON-LD. Errado para endereco e horario: "Rua X, 31" e "Casa A" sao duas
+   linhas, e junta-las produz um endereco que ninguem escreveria.
+
+   Aqui as tags de BLOCO viram quebra de verdade e o resto e removido. O que
+   sai e texto puro com "\n" — o site decide se vira <br> na tela ou virgula
+   no dado estruturado.
+   ========================================================================== */
+function emLinhas(entrada) {
+  const bruto = String(entrada == null ? "" : entrada);
+  /* `semHtml` colapsa espacos em branco, e "\n" e um deles: as quebras viram
+     um marcador improvavel antes de passar por ele, e voltam depois. */
+  const MARCA = "\u0001";
+  const comMarca = bruto
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)\s*>/gi, MARCA)
+    .replace(/<br\s*\/?>/gi, MARCA)
+    /* A QUEBRA QUE JA E QUEBRA. Sem esta linha a funcao nao e idempotente: o
+       valor que ela mesma produziu ("Rua X, 31\nCasa A", sem tag nenhuma)
+       perdia as quebras na segunda passagem, porque `semHtml` colapsa espaco
+       em branco e "\n" e um deles. E gravar → ler e o caminho normal, nao o
+       excepcional. */
+    .replace(/\r?\n/g, MARCA);
+  return semHtml(comMarca)
+    .split(MARCA)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+module.exports = { sanitizarHtml, linhaUnica, semHtml, emLinhas, comoHtml, urlSegura, esc, TAGS_OK, ATRIB_OK };

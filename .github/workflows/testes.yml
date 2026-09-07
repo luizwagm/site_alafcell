@@ -101,8 +101,14 @@ jobs:
       # escape certo — conferência por texto de escape depende de quantas
       # camadas de citação o shell atravessa e me deu resultados
       # contraditórios. Um teste que engana é pior que nenhum.
+      # `bash testes/vhost.sh` e nao `./testes/vhost.sh`: o repositorio esta em
+      # Windows com `core.fileMode=false`, entao o git grava 644 e o clone do
+      # runner recebe o arquivo SEM bit de execucao —
+      # "Permission denied", exit 126. O `git update-index --chmod=+x` corrige
+      # no indice; chamar pelo interpretador torna o passo imune ao problema,
+      # que ja mordeu este projeto na primeira subida ao servidor.
       - name: Provas do gerador de vhost
-        run: ./testes/vhost.sh
+        run: bash testes/vhost.sh
 
       # ------------------------------------------------------------------
       #  As suítes

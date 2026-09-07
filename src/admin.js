@@ -40,7 +40,7 @@ const path = require("node:path");
 
 const { Q, txt, ajuste } = require("./db");
 const Painel = require("./painel");
-const { sanitizarHtml, semHtml } = require("./html-seguro");
+const { sanitizarHtml, semHtml, emLinhas } = require("./html-seguro");
 
 const RAIZ = path.join(__dirname, "..");
 const PASTA_UPLOAD = path.join(RAIZ, "assets", "img", "uploads");
@@ -262,6 +262,20 @@ const TEXTO_PURO = new Set([
   "google.nota", "google.total",
 ]);
 
+/* ==========================================================================
+   TEXTO PURO QUE PRECISA DAS QUEBRAS
+
+   Endereco e horario sao DADO, nao texto corrido: vao para o `streetAddress`
+   do Schema.org e para o rodape. Mas ao contrario de cidade e CEP, eles tem
+   quebras que importam — "Rua X, 31" e "Casa A" sao duas linhas, e `semHtml`
+   as juntaria numa so.
+
+   Ficaram de fora do TEXTO_PURO ate a 0.11.1, e como o campo virou editor na
+   0.8.0, o que estava gravado tinha `<p>` — que a secao de contato imprimia
+   LITERAL na tela do visitante.
+   ========================================================================== */
+const TEXTO_EM_LINHAS = new Set(["loja.endereco", "loja.horario"]);
+
 function gravarTextos(corpo) {
   let n = 0;
   for (const [chave, valor] of Object.entries(corpo)) {
@@ -271,7 +285,9 @@ function gravarTextos(corpo) {
     /* So o DESTINO decide. Nao dá para usar o tipo: `home.titulo` é de uma
        linha e usa <em> para o destaque da marca — limpá-lo tiraria a
        identidade visual do topo da página. */
-    const limpo = TEXTO_PURO.has(chave) ? semHtml(cru) : sanitizarHtml(cru);
+    const limpo = TEXTO_EM_LINHAS.has(chave) ? emLinhas(cru)
+      : TEXTO_PURO.has(chave) ? semHtml(cru)
+      : sanitizarHtml(cru);
     ajuste(chave, limpo);
     n++;
   }

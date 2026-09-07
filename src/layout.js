@@ -10,10 +10,30 @@ const { Q, txt } = require("./db");
 const Medicao = require("./medicao");
 const Pub = require("./publicado");
 const { SITE, CABECALHO_ROBOS } = require("./endereco");
+const { emLinhas } = require("./html-seguro");
 
 const esc = (s) => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+/* ==========================================================================
+   LINHAS — dado de várias linhas, impresso com segurança
+
+   Endereço e horário são DADO, e o campo deles virou editor de texto na 0.8.0:
+   o que está gravado no banco do cliente tem `<p>` dentro. A seção de contato
+   imprimia isso com `esc()` e o visitante lia
+   `<p>Rua Benjamin Constant, 31, Casa A</p>` na tela; o rodapé interpretava. O
+   mesmo dado saindo de dois jeitos na mesma página.
+
+   Aqui: limpa a marcação PRESERVANDO as quebras (endereço tem linhas que
+   importam), escapa o que sobrou — é texto do cliente indo para o HTML — e
+   devolve as quebras como `<br>`.
+
+   Limpar na LEITURA, e não só na gravação, é o que conserta o que já está no
+   banco. Corrigir só a gravação deixaria o defeito na tela até alguém reabrir
+   e salvar cada campo, um por um.
+   ========================================================================== */
+const linhas = (v) => emLinhas(v).split("\n").map(esc).join("<br>");
 
 /* ==========================================================================
    A ENGRENAGEM
@@ -203,8 +223,8 @@ function rodape() {
       <div class="rodape__col">
         <h2 class="rodape__tit">Onde estamos</h2>
         <address class="rodape__loja">
-          ${txt("loja.endereco", "Endereço a preencher no painel")}<br>
-          <span>${txt("loja.horario", "Horário a preencher no painel")}</span>
+          ${linhas(txt("loja.endereco", "Endereço a preencher no painel"))}<br>
+          <span>${linhas(txt("loja.horario", "Horário a preencher no painel"))}</span>
           ${(() => {
             /* O telefone só vira link quando EXISTE. Vazio, ele saía como
                `<a href="tel:">(00) 0000-0000</a>` — um link que o dedo acerta
@@ -338,4 +358,4 @@ ${js}
 </html>`;
 }
 
-module.exports = { pagina, cabecalho, rodape, marca, engrenagem, zap, esc, SITE };
+module.exports = { pagina, cabecalho, rodape, marca, engrenagem, zap, esc, linhas, SITE };

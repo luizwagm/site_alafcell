@@ -569,6 +569,33 @@ function ajuste(chave, valor, meta = {}) {
 }
 
 /* ==========================================================================
+   SEMEAR UM TEXTO — sem apagar o que o cliente escreveu
+
+   `ajuste()` sobrescreve, e e isso que o painel precisa quando o dono salva.
+   Mas o CONTEUDO INICIAL roda a cada entrega (o `deploy.sh` chama `semear()`),
+   e ali sobrescrever significa **apagar tudo o que o cliente digitou**:
+   endereco, telefone, horario, os textos de todas as secoes voltavam ao
+   padrao no dia seguinte, sem erro e sem aviso.
+
+   A divisao e por dono:
+
+     · `valor`  -> e do CLIENTE. So entra quando a chave nasce.
+     · `rotulo`, `ajuda`, `grupo`, `tipo`, `ordem` -> sao MEUS: descrevem o
+       campo no painel e precisam poder melhorar a cada versao.
+
+   Por isso o metadado e atualizado sempre e o valor, nunca.
+   ========================================================================== */
+function semearTexto(chave, valor, meta = {}) {
+  const existe = Q.um("SELECT chave FROM config WHERE chave = ?", chave);
+  if (!existe) return ajuste(chave, valor, meta);
+  Q.roda(
+    `UPDATE config SET grupo = ?, rotulo = ?, ajuda = ?, tipo = ?, ordem = ?
+      WHERE chave = ?`,
+    meta.grupo || "geral", meta.rotulo || chave, meta.ajuda || "",
+    meta.tipo || "texto", meta.ordem || 0, chave);
+}
+
+/* ==========================================================================
    DINHEIRO
 
    Entra como centavos inteiros e sai formatado. As duas funções ficam juntas
@@ -621,4 +648,4 @@ function codigoLivre(tabela, prefixo) {
   throw new Error("não consegui sortear um código livre para " + tabela);
 }
 
-module.exports = { Q, txt, ajuste, reais, centavos, codigo, codigoLivre, CAMINHO, db };
+module.exports = { Q, txt, ajuste, semearTexto, reais, centavos, codigo, codigoLivre, CAMINHO, db };

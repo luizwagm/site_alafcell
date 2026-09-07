@@ -117,9 +117,17 @@ azul "4/7  fotos do site"
 node ferramentas/baixar-imagens.cjs | tail -3 | sed 's/^/     /'
 
 # ------------------------------------------------------------------ 5. dados
-# `semear` é idempotente: acrescenta o que falta e não toca no que a loja já
-# cadastrou. É o que permite mandar um serviço novo junto com o código, sem
-# passo manual.
+# `semear` acrescenta o que falta e NÃO toca no que a loja já cadastrou — é o
+# que permite mandar um serviço novo junto com o código, sem passo manual.
+#
+# ISSO ERA FALSO PARA OS TEXTOS ATÉ A 0.11.1. Serviços, aparelhos e o FAQ
+# sempre tiveram guarda de "tabela vazia"; os textos, não: cada entrega
+# devolvia endereço, telefone, horário e o conteúdo de todas as seções ao
+# padrão. O cliente preenchia o painel e encontrava tudo de volta no dia
+# seguinte, sem erro e sem aviso — ele culparia o painel.
+#
+# Hoje o VALOR é do cliente (só entra quando o campo nasce) e o RÓTULO é nosso
+# (atualiza sempre). Há prova disso na suíte.
 azul "5/7  conteúdo inicial (só o que faltar)"
 node ferramentas/semear.cjs | sed 's/^/     /'
 
