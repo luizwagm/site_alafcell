@@ -134,6 +134,19 @@ if ! node testes/provar.cjs > /tmp/alafcell-provas.log 2>&1; then
 fi
 tail -2 /tmp/alafcell-provas.log | sed 's/^/     /'
 
+# As provas de ROTA sobem o servidor de verdade numa porta propria (5293) e
+# pedem o que o buscador vai pedir: robots, sitemap, canonical, dados
+# estruturados. Elas existem porque `provar.cjs` chama as funcoes direto e e
+# cego para "a funcao existe, ninguem a ligou numa rota" — foi assim que o
+# /robots.txt subiu quebrado por varias entregas.
+if ! node testes/rotas.cjs > /tmp/alafcell-rotas.log 2>&1; then
+  erro "     As provas de ROTA falharam. O serviço NÃO foi reiniciado."
+  erro "     O site continua no ar com a versão anterior."
+  grep -E '✗|✖' /tmp/alafcell-rotas.log | head -20 | sed 's/^/       /' >&2
+  exit 1
+fi
+tail -2 /tmp/alafcell-rotas.log | sed 's/^/     /'
+
 # ---------------------------------------------------------------- 7. serviço
 azul "7/7  reiniciando o serviço"
 sudo systemctl restart "${UNIDADE}.service"

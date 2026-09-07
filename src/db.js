@@ -311,6 +311,86 @@ CREATE TABLE IF NOT EXISTS coletas (
 /* ==========================================================================
    BLOG
    ========================================================================== */
+  /* ------------------------------------------------------------------------
+     AVALIAÇÕES DO GOOGLE
+
+     Copiadas à mão da ficha da loja, porque a API do Google é paga e a
+     raspagem quebra a cada mudança do HTML deles.
+
+     'estrelas' existe mesmo o site só mostrando 5: guardar a nota real é o que
+     permite a regra ("só as de 5") viver numa consulta, e não na disciplina de
+     quem cadastra. Uma avaliação de 4 pode ser cadastrada e simplesmente não
+     aparece — o que é diferente de não poder ser registrada.
+
+     'autor' guarda o primeiro nome como aparece no Google. Nome completo de
+     cliente num site aberto é dado pessoal exposto sem necessidade.
+     ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     PUBLICACAO — o instantaneo do que esta no ar
+
+     O site le daqui; o painel edita as tabelas. Publicar copia uma coisa na
+     outra, numa linha so — e por ser uma linha so, a troca e atomica: nao
+     existe instante em que metade do site e nova e metade e velha.
+
+     'dados' e o JSON inteiro do conteudo. Guardar tudo junto parece
+     desperdicio ate a primeira vez em que alguem precisa saber o que estava
+     no ar em determinada data.
+     ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     FAQ — as perguntas frequentes
+
+     Nao e enfeite de pagina: e a superficie de busca deste site. Como landing
+     de pagina unica, ele tem UMA pagina para ranquear; cada pergunta aqui
+     responde uma busca de cauda longa ("quanto tempo demora para trocar a
+     tela") sem precisar de pagina nova — que e justamente o que o cliente
+     removeu na 0.4.0.
+
+     "ativo" em vez de apagar: pergunta fora de epoca (promocao, feriado) volta
+     no ano seguinte, e reescrever de memoria perde o texto que ja funcionava.
+     ------------------------------------------------------------------------ */
+  CREATE TABLE IF NOT EXISTS faq (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    pergunta TEXT NOT NULL DEFAULT '',
+    resposta TEXT NOT NULL DEFAULT '',
+    ordem    INTEGER NOT NULL DEFAULT 0,
+    ativo    INTEGER NOT NULL DEFAULT 1,
+    criado   TEXT
+  );
+
+  /* ------------------------------------------------------------------------
+     GOOGLE_CACHE — a ultima resposta da Places API
+
+     Uma linha so (id = 1). Cada consulta a API e cobrada, e as avaliacoes
+     mudam de mes em mes, nao de minuto em minuto: buscar a cada visita
+     transformaria uma pagina popular numa fatura.
+
+     Guardar tambem e o que mantem o site de pe quando a busca falha — cota
+     estourada ou queda de rede nao pode apagar as avaliacoes da pagina.
+     ------------------------------------------------------------------------ */
+  CREATE TABLE IF NOT EXISTS google_cache (
+    id     INTEGER PRIMARY KEY CHECK (id = 1),
+    dados  TEXT NOT NULL,
+    criado TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS publicacao (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    quem   TEXT NOT NULL DEFAULT '',
+    dados  TEXT NOT NULL,
+    criado TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS avaliacoes (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    autor     TEXT NOT NULL DEFAULT '',
+    texto     TEXT NOT NULL DEFAULT '',
+    estrelas  INTEGER NOT NULL DEFAULT 5,
+    quando    TEXT NOT NULL DEFAULT '',
+    ordem     INTEGER NOT NULL DEFAULT 0,
+    ativo     INTEGER NOT NULL DEFAULT 1,
+    criado    TEXT
+  );
+
 CREATE TABLE IF NOT EXISTS posts (
   id        INTEGER PRIMARY KEY,
   slug      TEXT NOT NULL UNIQUE,
@@ -432,9 +512,23 @@ const Q = {
    numa tabela de "valores iniciais": assim a página sempre tem o que mostrar,
    mesmo que a linha nunca tenha sido criada — que é o estado do site no dia
    em que ele sobe, antes de o cliente preencher qualquer coisa. */
+/* ==========================================================================
+   O TEXTO QUE O SITE MOSTRA E O QUE ESTA PUBLICADO
+
+   Aqui, e nao em cada chamada: `txt()` e usado em mais de cem pontos, e trocar
+   um por um deixaria justamente o esquecido mostrando rascunho no ar.
+
+   O painel NAO usa esta funcao para editar — ele le a tabela `config` direto
+   (ver `src/admin.js`), que e o rascunho. Sao caminhos diferentes de
+   proposito: um mostra o que o visitante ve, o outro mostra o que esta sendo
+   escrito.
+
+   O `require` fica DENTRO da funcao porque `publicado.js` requer `db.js`: no
+   topo, os dois se esperariam e um deles receberia um modulo pela metade.
+   ========================================================================== */
 function txt(chave, padrao = "") {
-  const l = Q.um("SELECT valor FROM config WHERE chave = ?", chave);
-  return l && l.valor !== "" ? l.valor : padrao;
+  const valor = require("./publicado").textos()[chave];
+  return valor !== undefined && valor !== "" ? valor : padrao;
 }
 
 /* Grava um texto e, se não existir, cria já com grupo e rótulo — é isso que

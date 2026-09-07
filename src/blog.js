@@ -12,6 +12,7 @@
    home seria desperdiçar o único momento em que ela está pronta.
    ========================================================================== */
 const { Q, txt } = require("./db");
+const Pub = require("./publicado");
 const L = require("./layout");
 const { esc, engrenagem, zap } = L;
 const { SITE } = require("./endereco");
@@ -41,7 +42,7 @@ function cartao(p, i) {
     decoding="async" width="1200" height="800"></span>` : ""}
   ${p.etiqueta ? `<span class="selo selo--semi">${esc(p.etiqueta)}</span>` : ""}
   <h2 class="cartao__titulo">${esc(p.titulo)}</h2>
-  <p class="cartao__texto">${esc(p.resumo)}</p>
+  <p class="cartao__texto">${p.resumo}</p>
   <span class="post__pe dado">${esc(dataBR(p.data))} · ${minutos(p.corpo)} min de leitura</span>
 </a>`;
 }
@@ -50,8 +51,7 @@ function cartao(p, i) {
    /blog/
    ========================================================================== */
 function indice(req) {
-  const posts = Q.todos(
-    "SELECT * FROM posts WHERE publicado = 1 ORDER BY data DESC, id DESC");
+  const posts = Pub.posts();
 
   return L.pagina({
     req, atual: "blog", canonical: "/blog/",
@@ -93,11 +93,13 @@ function indice(req) {
    /blog/:slug/
    ========================================================================== */
 function materia(req, slug) {
-  const p = Q.um("SELECT * FROM posts WHERE slug = ? AND publicado = 1", slug);
+  /* Do INSTANTÂNEO, e não da tabela: uma matéria escrita e não publicada
+     continuaria abrindo pelo endereço direto, e o rascunho estaria no ar por
+     uma porta lateral. */
+  const p = Pub.postPorSlug(slug);
   if (!p) return null;
 
-  const outros = Q.todos(
-    "SELECT * FROM posts WHERE publicado = 1 AND id <> ? ORDER BY data DESC LIMIT 2", p.id);
+  const outros = Pub.posts().filter((x) => x.id !== p.id).slice(0, 2);
 
   return L.pagina({
     req, atual: "blog", canonical: `/blog/${p.slug}/`,
@@ -137,7 +139,7 @@ function materia(req, slug) {
     <header class="artigo__topo">
       ${p.etiqueta ? `<p class="rotulo">${engrenagem("", 12)}${esc(p.etiqueta)}</p>` : ""}
       <h1 class="titulo">${esc(p.titulo)}</h1>
-      <p class="sub">${esc(p.resumo)}</p>
+      <p class="sub">${p.resumo}</p>
       <p class="artigo__meta dado">${esc(dataBR(p.data))} · ${minutos(p.corpo)} min de leitura
         ${p.autor ? ` · ${esc(p.autor)}` : ""}</p>
     </header>

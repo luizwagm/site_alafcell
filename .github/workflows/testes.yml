@@ -1,0 +1,134 @@
+# ==========================================================================
+#  TESTES — Alafcell Assistec
+#
+#  Roda em todo push e em todo pull request, e é chamado pelo deploy como
+#  portão: uma suíte vermelha não vira site no ar.
+#
+#  É `workflow_call` além de `push`/`pull_request` para o deploy.yml poder
+#  reusá-lo com `uses:`. Duplicar a bateria nos dois arquivos é como um deploy
+#  acaba rodando uma versão mais velha dos testes que o CI.
+# ==========================================================================
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:      # chamado pelo deploy.yml
+  workflow_dispatch:
+
+jobs:
+  provar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A MESMA LINHA DO SERVIDOR. Provar em outra versão é provar outro
+      # programa: `better-sqlite3` é módulo nativo e o Node muda de ABI entre
+      # versões maiores.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` e não `npm install`: ele instala EXATAMENTE o que está no
+      # lock e falha se o lock divergir do package.json — que é o que se quer
+      # num CI. O `install` consertaria a divergência em silêncio e o servidor
+      # receberia outra árvore de dependências.
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+
+      # ------------------------------------------------------------------
+      #  Conferências estáticas — baratas, e pegam o que mais quebrou aqui
+      # ------------------------------------------------------------------
+
+      # Crase dentro de template literal já derrubou `db.js`, `layout.js` e
+      # `paginas.js` neste projeto. O `node --check` custa milissegundos e
+      # pega todos.
+      - name: Todo JavaScript compila
+        run: |
+          erros=0
+          while IFS= read -r f; do
+            node --check "$f" || { echo "::error file=$f::erro de sintaxe"; erros=1; }
+          done < <(git ls-files '*.js' '*.cjs')
+          exit $erros
+
+      - name: Todo shell script compila
+        run: |
+          erros=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=$f::erro de sintaxe"; erros=1; }
+          done < <(git ls-files '*.sh')
+          exit $erros
+
+      # Um `\r` no fim da linha faz o bash ler `bash\r` como interpretador: o
+      # script morre com "no such file or directory" apontando para um arquivo
+      # que existe. O `.gitattributes` previne; isto confere, porque prevenção
+      # sem conferência é promessa.
+      - name: Nenhum script com fim de linha do Windows
+        run: |
+          if git ls-files '*.sh' '*.service' '*.timer' | xargs -r grep -lP '\r$' 2>/dev/null | grep .; then
+            echo "::error::os arquivos acima têm CRLF — o bash e o systemd não leem assim"
+            exit 1
+          fi
+          echo "todos com LF"
+
+      # O lock veio COPIADO de outro projeto na primeira subida deste site, e
+      # `npm ci` recusou com "package.json and package-lock.json are in sync".
+      # Divergir as versões reproduz o mesmo erro — e ele só aparece no
+      # servidor, no meio de uma entrega.
+      - name: A versão bate entre package.json e o lock
+        run: |
+          node -e '
+            const p = require("./package.json"), l = require("./package-lock.json");
+            const raiz = (l.packages && l.packages[""] || {}).version;
+            if (p.version !== l.version || p.version !== raiz) {
+              console.log(`::error::package.json ${p.version}, lock ${l.version}, lock raiz ${raiz} — rode: npm install --package-lock-only`);
+              process.exit(1);
+            }
+            console.log("versão", p.version, "nos dois");
+          '
+
+      # O script de instalação gera o vhost do nginx por heredoc, e heredoc
+      # quebra em silêncio: um `$` mal escapado não derruba o bash — faz o
+      # bloco NÃO SER ESCRITO, e o defeito só aparece no servidor.
+      #
+      # A suíte roda o gerador de verdade (modo de ensaio, sem root) e olha o
+      # arquivo que saiu. A primeira versão disto era um `grep` procurando o
+      # escape certo — conferência por texto de escape depende de quantas
+      # camadas de citação o shell atravessa e me deu resultados
+      # contraditórios. Um teste que engana é pior que nenhum.
+      - name: Provas do gerador de vhost
+        run: ./testes/vhost.sh
+
+      # ------------------------------------------------------------------
+      #  As suítes
+      # ------------------------------------------------------------------
+
+      # 227 provas em memória, num banco temporário.
+      - name: Suíte principal
+        run: node testes/provar.cjs
+
+      # 36 provas que SOBEM O SERVIDOR DE VERDADE (porta 5293) e pedem o que o
+      # buscador vai pedir. Ela existe porque a suíte principal chama as
+      # funções direto e é cega para "a função existe e ninguém a ligou numa
+      # rota" — foi assim que `/robots.txt` e `/saude` responderam 404 por
+      # várias versões, com as provas verdes.
+      - name: Suíte de rotas
+        run: node testes/rotas.cjs
+
+      # A suíte deve deixar a máquina como encontrou. Banco de prova esquecido
+      # é ruído no servidor — e aqui, num runner descartável, é o único lugar
+      # onde dá para flagrar antes de virar hábito.
+      - name: A suíte não deixou lixo para trás
+        run: |
+          sobrou=$(ls /tmp/alafcell-*.db /tmp/alaf-exemplos-*.db 2>/dev/null | wc -l)
+          if [ "$sobrou" -gt 0 ]; then
+            ls -la /tmp/alafcell-*.db /tmp/alaf-exemplos-*.db 2>/dev/null
+            echo "::error::a suíte deixou $sobrou banco(s) de prova para trás"
+            exit 1
+          fi
+          echo "nada para trás"

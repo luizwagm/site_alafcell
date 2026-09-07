@@ -1,0 +1,218 @@
+# ==========================================================================
+#  DEPLOY — Alafcell Assistec
+#
+#  Faz push na main → o GitHub entra no servidor por SSH e roda o `deploy.sh`.
+#  Nunca sobe sem a bateria passar: o job depende do de testes.
+#
+#  SEGREDOS (Settings → Secrets and variables → Actions):
+#    SSH_HOST         o IP ou nome do servidor
+#    SSH_USER         deploy
+#    SSH_KEY          a chave PRIVADA (o conteúdo do arquivo, SEM .pub)
+#    SSH_KNOWN_HOSTS  saída de `ssh-keyscan -H <servidor>` (opcional, mas sem
+#                     ela o runner aceita a chave do servidor sem conferir)
+#    SSH_PORT         só se o SSH não estiver na 22
+#
+#  NO SERVIDOR, o usuário do deploy precisa rodar o script como root SEM senha
+#  — e SÓ esse script. Em /etc/sudoers.d/alafcell:
+#      deploy ALL=(root) NOPASSWD: /var/www/projetos/Alafcell-Assistec/deploy.sh
+#  `NOPASSWD: ALL` seria dar root de graça a quem tomasse a sessão do deploy.
+#
+#  ARMADILHA JÁ PAGA NO PARQUE: se você prender a chave a um `command=` no
+#  authorized_keys, ela IGNORA o comando pedido e roda o dela — testar a
+#  conexão JÁ DISPARA o deploy. Prenda primeiro a um `echo` para conferir o
+#  acesso, e só depois troque pelo comando de verdade.
+# ==========================================================================
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    # Mudança só de documentação não reinicia o serviço de um site com
+    # cliente. O README não vai para a tela de ninguém.
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.gitattributes'
+  workflow_dispatch:
+    inputs:
+      motivo:
+        description: 'Por que está subindo agora'
+        required: false
+        default: 'deploy manual'
+
+concurrency:
+  # Dois deploys ao mesmo tempo brigam pelo `git pull` e pelo serviço. O
+  # segundo espera; `cancel-in-progress: false` porque cancelar uma entrega no
+  # meio deixa o servidor em estado indefinido.
+  group: deploy-alafcell
+  cancel-in-progress: false
+
+jobs:
+  testar:
+    uses: ./.github/workflows/testes.yml
+
+  subir:
+    needs: testar
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Falhar aqui, dizendo o que falta, é melhor que falhar no ssh com
+      # "Permission denied" — que manda procurar no lugar errado.
+      - name: Conferir se os segredos existem
+        run: |
+          faltando=""
+          [ -n "${{ secrets.SSH_HOST }}" ] || faltando="$faltando SSH_HOST"
+          [ -n "${{ secrets.SSH_USER }}" ] || faltando="$faltando SSH_USER"
+          [ -n "${{ secrets.SSH_KEY }}" ]  || faltando="$faltando SSH_KEY"
+          if [ -n "$faltando" ]; then
+            echo "::error::faltam os segredos:$faltando — configure em Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "segredos presentes"
+
+      - name: Preparar o SSH
+        env:
+          CHAVE: ${{ secrets.SSH_KEY }}
+          CONHECIDOS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          HOST: ${{ secrets.SSH_HOST }}
+          PORTA: ${{ secrets.SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$CHAVE" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          if [ -n "$CONHECIDOS" ]; then
+            printf '%s\n' "$CONHECIDOS" > ~/.ssh/known_hosts
+            echo "impressão digital do servidor conferida pelo segredo"
+          else
+            # Sem SSH_KNOWN_HOSTS aceitamos o que o servidor apresentar na
+            # primeira conexão. Funciona, mas não protege contra alguém no
+            # meio do caminho — e a chave iria junto.
+            ssh-keyscan -p "${PORTA:-22}" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+            echo "::warning::SSH_KNOWN_HOSTS não configurado — aceitando a chave do servidor sem conferir"
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      # Erro campeão desta configuração: colar a chave PÚBLICA no segredo. O
+      # ssh responde "Permission denied (publickey)" e não diz o motivo.
+      - name: Conferir o formato da chave
+        run: |
+          if ! grep -q "PRIVATE KEY" ~/.ssh/deploy; then
+            echo "::error::SSH_KEY não é uma chave privada. O conteúdo tem de começar com '-----BEGIN OPENSSH PRIVATE KEY-----' (o arquivo SEM .pub). Se você colou o .pub, troque o segredo."
+            exit 1
+          fi
+          # Fora de grupo recolhível, de propósito: é o número que resolve o
+          # caso quando o deploy falha por chave.
+          echo "IMPRESSÃO DIGITAL DA CHAVE (compare com a do servidor):"
+          ssh-keygen -lf ~/.ssh/deploy || echo "não consegui ler a chave — o conteúdo de SSH_KEY está truncado"
+
+      - name: Testar o acesso antes de mexer no servidor
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USER }}
+          PORTA: ${{ secrets.SSH_PORT }}
+        run: |
+          IMPRESSAO=$(ssh-keygen -lf ~/.ssh/deploy 2>/dev/null | awk '{print $2}')
+          if ssh -i ~/.ssh/deploy -p "${PORTA:-22}" -o BatchMode=yes -o ConnectTimeout=15 \
+                 "$USUARIO@$HOST" 'echo conectado' 2>/dev/null | grep -q conectado; then
+            echo "acesso SSH OK"
+          else
+            echo "─────────── o que o SSH tentou ───────────"
+            ssh -v -i ~/.ssh/deploy -p "${PORTA:-22}" -o BatchMode=yes -o ConnectTimeout=15 \
+                "$USUARIO@$HOST" 'echo x' 2>&1 \
+              | grep -Ei "identity file|Offering|Server accepts|Authenticated to|denied|no matching|Connection" | head -20 || true
+            echo "──────────────────────────────────────────"
+
+            # A confusão mais cara aqui é usar a DEPLOY KEY do GitHub como se
+            # fosse a chave do servidor. São sentidos opostos: aquela serve
+            # para o SERVIDOR LER O GITHUB; esta, para o GITHUB ENTRAR NO
+            # SERVIDOR. Dá para descobrir perguntando ao próprio GitHub.
+            if ssh -T -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+                   git@github.com 2>&1 | grep -q "successfully authenticated"; then
+              echo "::error::A chave em SSH_KEY é uma DEPLOY KEY DO GITHUB, não a chave do servidor. O GitHub a reconhece — ou seja, ela serve para o servidor LER o GitHub, o sentido contrário do que este passo precisa."
+              exit 1
+            fi
+
+            echo "IMPRESSÃO DIGITAL DA CHAVE QUE EU USEI: ${IMPRESSAO}"
+            echo "No servidor, confira se ela está entre as aceitas:"
+            echo "    ssh-keygen -lf ~/.ssh/authorized_keys | grep '${IMPRESSAO}'"
+            echo "Sem saída, a pública NÃO foi acrescentada — gerar a chave não é aceitá-la."
+            echo "::error::A chave de SSH_KEY não foi aceita. Impressão digital: ${IMPRESSAO}"
+            exit 1
+          fi
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USER }}
+          PORTA: ${{ secrets.SSH_PORT }}
+        run: |
+          set -o pipefail
+          ssh -i ~/.ssh/deploy -p "${PORTA:-22}" \
+              -o BatchMode=yes -o ConnectTimeout=20 \
+              "$USUARIO@$HOST" \
+              'sudo /var/www/projetos/Alafcell-Assistec/deploy.sh' 2>&1 | tee saida-deploy.txt
+
+      # ====================================================================
+      #  O PASSO QUE PEGA "O SCRIPT RODOU MAS O SERVIÇO NÃO REINICIOU"
+      #
+      #  O `/saude` devolve a versão que está EM MEMÓRIA no processo. Se ela
+      #  não for a deste commit, o deploy passou e o site continua no código
+      #  antigo — falha que nada mais denuncia.
+      #
+      #  (Este endereço respondia 404 até a 0.9.0: a rota nunca tinha sido
+      #  escrita, e o próprio `deploy.sh` já dependia dela para saber se o
+      #  site subiu.)
+      # ====================================================================
+      - name: Conferir que a versão nova está no ar
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USER }}
+          PORTA: ${{ secrets.SSH_PORT }}
+        run: |
+          ESPERADA=$(node -p "require('./package.json').version")
+          NO_AR=$(ssh -i ~/.ssh/deploy -p "${PORTA:-22}" -o BatchMode=yes "$USUARIO@$HOST" \
+                  "curl -s --max-time 10 http://127.0.0.1:5202/saude" \
+                  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).versao)}catch{console.log("?")}})')
+          echo "esperada: $ESPERADA · no ar: $NO_AR"
+          if [ "$ESPERADA" != "$NO_AR" ]; then
+            echo "::error::a versão no ar ($NO_AR) não é a deste commit ($ESPERADA) — o script rodou mas o serviço não pegou o código novo"
+            exit 1
+          fi
+          echo "::notice::Alafcell Assistec v$NO_AR no ar"
+
+      # O canonical é o defeito mais caro e mais silencioso desta arquitetura:
+      # apontando para o endereço errado, ele manda o Google indexar outro
+      # site, e nada na tela denuncia. Um `.env` sem `ALAFCELL_SITE`, ou um
+      # serviço que subiu antes de o arquivo existir, produz exatamente isso.
+      - name: Conferir o endereço que o site anuncia
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USER }}
+          PORTA: ${{ secrets.SSH_PORT }}
+        run: |
+          SAUDE=$(ssh -i ~/.ssh/deploy -p "${PORTA:-22}" -o BatchMode=yes "$USUARIO@$HOST" \
+                  "curl -s --max-time 10 http://127.0.0.1:5202/saude")
+          SITE=$(echo "$SAUDE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).site)}catch{console.log("?")}})')
+          INDEX=$(echo "$SAUDE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).indexavel)}catch{console.log("?")}})')
+          echo "endereço anunciado: $SITE · indexável: $INDEX"
+          case "$SITE" in
+            http*) echo "::notice::o site anuncia $SITE (indexável: $INDEX)" ;;
+            *) echo "::error::o site não anuncia endereço nenhum — confira ALAFCELL_SITE no .env do servidor"; exit 1 ;;
+          esac
+          # Lembrete útil, não erro: enquanto for endereço de trabalho, o site
+          # está fora do índice de propósito.
+          if [ "$INDEX" = "false" ]; then
+            echo "::warning::o site está FORA do índice do Google (endereço de trabalho). Na virada para alafcell.com.br, rode o criar-site.sh — ver SUBIR.md."
+          fi
+
+      - name: Guardar a saída do deploy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saida-deploy
+          path: saida-deploy.txt
+          if-no-files-found: ignore
+          retention-days: 14

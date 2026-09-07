@@ -8,6 +8,7 @@
    ========================================================================== */
 const { Q, txt } = require("./db");
 const Medicao = require("./medicao");
+const Pub = require("./publicado");
 const { SITE, CABECALHO_ROBOS } = require("./endereco");
 
 const esc = (s) => String(s == null ? "" : s)
@@ -70,18 +71,6 @@ function zap(mensagem = "") {
   return `https://wa.me/${n}${mensagem ? "?text=" + encodeURIComponent(mensagem) : ""}`;
 }
 
-/* --------------------------------------------------- quantos itens no carrinho
-   Lido do cookie, no servidor. O contador precisa estar certo no HTML que
-   chega — pintá-lo depois pelo JavaScript faz o número pular de 0 para 3 na
-   frente do cliente, e no carrinho isso parece defeito de loja. */
-function itensNoCarrinho(req) {
-  try {
-    const g = /(?:^|;\s*)alafcell_cesta=([^;]*)/.exec(req.headers.cookie || "");
-    if (!g) return 0;
-    const itens = JSON.parse(decodeURIComponent(g[1]));
-    return Array.isArray(itens) ? itens.reduce((s, i) => s + (Number(i.q) || 0), 0) : 0;
-  } catch { return 0; }
-}
 
 /* ==========================================================================
    CABEÇALHO
@@ -101,7 +90,6 @@ function cabecalho(atual = "", req = null) {
     `<a href="${href}" class="nav__i${atual === chave ? " nav__i--atual" : ""}"${
       atual === chave ? ' aria-current="page"' : ""}>${rot}</a>`;
 
-  const n = req ? itensNoCarrinho(req) : 0;
 
   return `
 <a href="#conteudo" class="pular">Ir para o conteúdo</a>
@@ -109,24 +97,30 @@ function cabecalho(atual = "", req = null) {
   <div class="env topo__in">
     <a href="/" class="topo__marca" aria-label="${esc(txt("marca.nome", "Alafcell Assistec"))} — página inicial">${marca()}</a>
 
+    <!-- ====================================================================
+         O MENU APONTA PARA DENTRO DA PRÓPRIA PÁGINA
+
+         O site virou uma landing: consertos, busca e leva e contato são SEÇÕES
+         de "/", não telas. Só o blog continua sendo página de verdade, porque
+         cada matéria precisa de endereço próprio para ser compartilhada.
+
+         As âncoras levam a barra ("/#consertos" e não "#consertos") de
+         propósito: assim o mesmo menu funciona quando alguém está lendo uma
+         matéria do blog — sem a barra, o link procuraria a seção dentro da
+         matéria e não sairia do lugar.
+         ==================================================================== -->
     <nav class="nav" aria-label="Principal">
-      ${item("/consertos/", "Consertos", "consertos")}
-      ${item("/busca-e-leva/", "Busca e leva", "coleta")}
-      ${item("/loja/", "Loja", "loja")}
+      ${item("/#consertos", "Consertos", "consertos")}
+      ${item("/#busca-e-leva", "Busca e leva", "coleta")}
       ${item("/blog/", "Blog", "blog")}
-      ${item("/contato/", "Contato", "contato")}
+      ${item("/#contato", "Contato", "contato")}
     </nav>
 
+    <!-- Saíram daqui o carrinho (não há loja) e o "Acompanhar". No lugar, o
+         que esta assistência faz o dia inteiro: conversa no WhatsApp. -->
     <div class="topo__acoes">
-      <a class="topo__cesta" href="/carrinho/" aria-label="Carrinho${n ? `, ${n} item(ns)` : " vazio"}">
-        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
-             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/>
-          <circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/>
-        </svg>
-        ${n ? `<span class="topo__cesta-n">${n}</span>` : ""}
-      </a>
-      <a class="btn btn--linha btn--sm topo__acompanhar" href="/acompanhar/">Acompanhar</a>
+      <a class="btn btn--acao btn--sm topo__zap" href="${zap("Olá! Vim pelo site e queria um orçamento.")}"
+         target="_blank" rel="noopener">Falar no WhatsApp</a>
       <button class="topo__menu" type="button" aria-expanded="false"
               aria-controls="nav-movel" aria-label="Abrir o menu">
         <span></span><span></span><span></span>
@@ -137,12 +131,11 @@ function cabecalho(atual = "", req = null) {
   <!-- Menu do celular: os mesmos itens. Duplicar a lista em dois lugares é
        como um site ganha um link a mais no desktop que não existe no celular. -->
   <nav class="nav-movel" id="nav-movel" hidden aria-label="Principal (celular)">
-    <a href="/consertos/">Consertos</a>
-    <a href="/busca-e-leva/">Busca e leva</a>
-    <a href="/loja/">Loja</a>
+    <a href="/#consertos">Consertos</a>
+    <a href="/#busca-e-leva">Busca e leva</a>
+    <a href="/#como-funciona">Como funciona</a>
     <a href="/blog/">Blog</a>
-    <a href="/contato/">Contato</a>
-    <a href="/acompanhar/">Acompanhar meu conserto</a>
+    <a href="/#contato">Contato</a>
     <a class="btn btn--acao btn--largo" href="${zap("Olá! Vim pelo site e queria um orçamento.")}"
        target="_blank" rel="noopener">Orçamento no WhatsApp</a>
   </nav>
@@ -161,8 +154,7 @@ function cabecalho(atual = "", req = null) {
    ninguém mexer no código — e sem o rodapé passar a mentir.
    ========================================================================== */
 function rodape() {
-  const servicos = Q.todos(
-    "SELECT slug, nome FROM servicos WHERE ativo = 1 ORDER BY ordem, nome LIMIT 6");
+  const servicos = Pub.servicos(6);
   const ano = new Date().getFullYear();
   const insta = txt("marca.instagram", "https://www.instagram.com/alafcell_assistec/");
 
@@ -172,8 +164,8 @@ function rodape() {
     <div class="rodape__topo">
       <div class="rodape__marca">
         ${marca()}
-        <p class="rodape__frase">${esc(txt("marca.slogan",
-          "Assistência técnica especializada em Caruaru. A gente busca, conserta e devolve."))}</p>
+        <p class="rodape__frase">${txt("marca.slogan",
+          "Assistência técnica especializada em Caruaru. A gente busca, conserta e devolve.")}</p>
         <div class="rodape__social">
           <a class="rodape__zap" href="${zap("Olá! Vim pelo site da Alafcell.")}"
              target="_blank" rel="noopener">Falar no WhatsApp</a>
@@ -181,41 +173,47 @@ function rodape() {
         </div>
       </div>
 
+      <!-- Os consertos NÃO têm mais link para tela própria: a lista aqui é
+           informação, e o destino de todos é a seção da landing. Manter um
+           link por serviço apontando para o mesmo lugar seria prometer sete
+           páginas que não existem. -->
       <nav class="rodape__col" aria-labelledby="rf-serv">
-        <h2 class="rodape__tit" id="rf-serv">Consertos</h2>
+        <h2 class="rodape__tit" id="rf-serv">O que a gente conserta</h2>
         <ul>${servicos.map((s) =>
-          `<li><a href="/consertos/${esc(s.slug)}/">${esc(s.nome)}</a></li>`).join("")}
-          <li><a href="/consertos/">Ver todos e os preços</a></li>
-        </ul>
-      </nav>
-
-      <nav class="rodape__col" aria-labelledby="rf-loja">
-        <h2 class="rodape__tit" id="rf-loja">Loja</h2>
-        <ul>
-          <li><a href="/loja/smartphone/">Smartphones novos</a></li>
-          <li><a href="/loja/seminovos/">Seminovos com garantia</a></li>
-          <li><a href="/loja/acessorio/">Acessórios</a></li>
-          <li><a href="/loja/periferico/">Periféricos</a></li>
+          `<li>${esc(s.nome)}</li>`).join("")}
+          <li><a href="/#consertos">Ver a lista completa</a></li>
         </ul>
       </nav>
 
       <nav class="rodape__col" aria-labelledby="rf-emp">
         <h2 class="rodape__tit" id="rf-emp">A Alafcell</h2>
         <ul>
-          <li><a href="/busca-e-leva/">Busca e leva</a></li>
-          <li><a href="/acompanhar/">Acompanhar conserto</a></li>
+          <li><a href="/#busca-e-leva">Busca e leva</a></li>
+          <li><a href="/#como-funciona">Como funciona</a></li>
+          <li><a href="/#garantia">Garantia</a></li>
           <li><a href="/blog/">Blog</a></li>
-          <li><a href="/contato/">Contato</a></li>
+          <li><a href="/#contato">Contato</a></li>
           <li><a href="/privacidade/">Privacidade</a></li>
         </ul>
       </nav>
 
+      <!-- "Onde estamos" logo ao lado de "A Alafcell", como pedido: as duas
+           respondem à mesma pergunta ("quem são e onde ficam") e ficavam
+           separadas pela coluna da Loja, que saiu. -->
       <div class="rodape__col">
         <h2 class="rodape__tit">Onde estamos</h2>
         <address class="rodape__loja">
-          ${esc(txt("loja.endereco", "Endereço a preencher no painel"))}<br>
-          <span>${esc(txt("loja.horario", "Horário a preencher no painel"))}</span><br>
-          <a href="tel:${esc(txt("marca.telefone", "").replace(/\D/g, ""))}">${esc(txt("marca.telefone", "(00) 0000-0000"))}</a>
+          ${txt("loja.endereco", "Endereço a preencher no painel")}<br>
+          <span>${txt("loja.horario", "Horário a preencher no painel")}</span>
+          ${(() => {
+            /* O telefone só vira link quando EXISTE. Vazio, ele saía como
+               `<a href="tel:">(00) 0000-0000</a>` — um link que o dedo acerta
+               e que não liga para ninguém. Enquanto o campo estiver em branco,
+               o WhatsApp logo acima é o caminho, e ele funciona. */
+            const t = txt("marca.telefone", "");
+            const so = t.replace(/\D/g, "");
+            return so ? `<br><a href="tel:${esc(so)}">${esc(t)}</a>` : "";
+          })()}
         </address>
       </div>
     </div>
@@ -340,4 +338,4 @@ ${js}
 </html>`;
 }
 
-module.exports = { pagina, cabecalho, rodape, marca, engrenagem, zap, esc, SITE, itensNoCarrinho };
+module.exports = { pagina, cabecalho, rodape, marca, engrenagem, zap, esc, SITE };

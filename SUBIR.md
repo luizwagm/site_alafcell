@@ -99,10 +99,26 @@ próprio.
 
 ---
 
-## Antes de virar para o domínio de verdade
+## Virar para alafcell.com.br
 
-Estes três não podem ficar para depois — os dois primeiros são promessa falsa
-ao cliente final, e o terceiro é o site dizendo ao Google o endereço errado.
+### Antes: o DNS
+
+Dois registros apontando para o IP do servidor, e os dois **antes** de rodar o
+`criar-site.sh` — ele confere o DNS e só pede certificado para o que resolve:
+
+| Tipo | Nome  | Valor              |
+|------|-------|--------------------|
+| A    | `@`   | IP do servidor     |
+| A    | `www` | IP do servidor     |
+
+O `www` não é opcional: quem digita `www.alafcell.com.br` e não encontra nada vê
+erro de navegador, não o site. Com ele no DNS, o script cria o redirecionamento
+permanente para o endereço sem `www`.
+
+### Antes: o que é promessa falsa
+
+Estes não podem ficar para depois — os dois primeiros são promessa falsa ao
+cliente final, e o terceiro é o site dizendo ao Google o endereço errado.
 
 1. **Os preços.** Todos os valores da tabela de conserto são de *demonstração*.
    Conferir e substituir em `/admin`.
@@ -115,16 +131,76 @@ ao cliente final, e o terceiro é o site dizendo ao Google o endereço errado.
 3. **Endereço, telefone, horário e CNPJ**, em `/admin`. Sem endereço real o
    `LocalBusiness` do Schema.org não monta — e é justamente o que trava as
    páginas de franquia dos concorrentes no Google.
+4. **As avaliações de exemplo** (`/admin` → Recomendações). Elas dizem
+   "AVALIAÇÃO DE EXEMPLO" no texto e vão para o ar assim se ninguém trocar.
+5. **As cidades atendidas** (`/admin` → Endereço e horário). A lista que vem
+   pronta cobre o Agreste inteiro — **tire as cidades onde a busca e leva não
+   vai de verdade.** Cada cidade ali é uma promessa operacional.
 
-E então:
+### A virada
 
 ```bash
 sudo ./criar-site.sh alafcell.com.br 5202
 ./verificar.sh https://alafcell.com.br
 ```
 
-O `criar-site.sh` grava o `ALAFCELL_SITE` no `.env` e reinicia o serviço — sem
-isso o canonical continuaria apontando para o subdomínio de trabalho.
+O script faz, nesta ordem: confere o DNS dos dois nomes, escreve o vhost, emite
+o certificado para `alafcell.com.br` **e** `www.alafcell.com.br`, grava
+`ALAFCELL_SITE=https://alafcell.com.br` no `.env` e reinicia o serviço.
+
+**O que muda sozinho ao mudar o `ALAFCELL_SITE`** — está todo em
+`src/endereco.js`, num lugar só:
+
+- o site sai do modo "endereço de trabalho" e **passa a ser indexável**;
+- o `robots.txt` deixa de ser `Disallow: /` e passa a liberar tudo menos os
+  painéis, com a linha `Sitemap:`;
+- o cabeçalho `X-Robots-Tag: noindex` **para de sair** em todas as respostas;
+- o `sitemap.xml` deixa de sair vazio;
+- o canonical, o JSON-LD e o `og:url` passam a apontar para o domínio real.
+
+Sem reiniciar o serviço, nada disso vale: o endereço é lido na subida.
+
+### Depois: o Google
+
+O site indexável não é o mesmo que o site encontrado. Estes três passos são do
+dono e nenhum script faz por ele:
+
+1. **Google Search Console** (<https://search.google.com/search-console>) —
+   adicionar a propriedade, provar a posse (registro TXT no DNS) e **enviar o
+   sitemap** `https://alafcell.com.br/sitemap.xml`. É por aqui que se descobre
+   página com erro, e é o único lugar que mostra o que as pessoas digitaram
+   para chegar ao site.
+2. **Google Business Profile** — a ficha da loja no Maps. **É lá que ficam as
+   estrelas**, não no site: o Google não exibe nota de avaliação marcada na
+   página do próprio negócio. Para uma assistência técnica, a ficha bem
+   preenchida (endereço, horário, fotos, serviços) traz mais gente que o site.
+3. **O mesmo endereço, escrito igual, em toda parte** — site, ficha do Google,
+   Instagram, catálogo. Endereço divergente entre as fontes é o que faz o Google
+   desconfiar de qual é a loja de verdade.
+
+### Depois: conferir de fora
+
+```bash
+curl -s https://alafcell.com.br/robots.txt
+curl -s https://alafcell.com.br/sitemap.xml | head
+curl -sI https://www.alafcell.com.br | head -3
+curl -sI https://alafcell.com.br | grep -i "strict-transport\|x-robots"
+```
+
+Espera-se: o robots liberando o site, o sitemap com as URLs, o `www`
+respondendo **301** para o endereço sem `www`, o `Strict-Transport-Security`
+presente e **nenhum** `X-Robots-Tag`.
+
+Um `X-Robots-Tag: noindex` sobrando aqui apaga o site inteiro da busca, e é
+invisível para quem só olha a tela.
+
+---
+
+## Entrega automática
+
+Depois da primeira subida, ligar o GitHub Actions faz `git push` publicar
+sozinho — com as três suítes como portão, e conferindo depois que a versão no
+ar é a do commit. Passo a passo em [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md).
 
 ---
 
@@ -134,5 +210,8 @@ isso o canonical continuaria apontando para o subdomínio de trabalho.
   Enquanto a pasta `backups/` não entrar no LA Backup (R2), um disco perdido
   leva o banco junto.
 - **LA Chat e LA Publisher** ainda não estão instalados aqui.
-- **`/admin` e `/restrito`** ainda não existem: sem eles o cliente não consegue
-  trocar os preços de demonstração sozinho.
+- **O `/restrito`** ainda não existe (gerenciador da loja: estoque, pedidos,
+  ordens de serviço e financeiro). O `/admin` está pronto desde a 0.5.0.
+- **Sem `preload` no HSTS**, de propósito: entrar na lista de precarga dos
+  navegadores é praticamente irreversível e vale para o domínio inteiro. É
+  decisão do dono do domínio, não de um script de instalação.

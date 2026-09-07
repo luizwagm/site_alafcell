@@ -23,12 +23,32 @@ const Inicial = require("./src/conteudo-inicial");
 const Painel = require("./src/painel");
 const Paginas = require("./src/paginas");
 const Demo = require("./src/demo");
-const Consertos = require("./src/consertos");
-const Coleta = require("./src/coleta");
-const Loja = require("./src/loja");
+/* O montador de link do WhatsApp mora no layout — mesma função que os botões
+   da página usam. Duas versões do mesmo link é o caminho para uma delas ficar
+   com o número velho no dia em que o cliente trocar de aparelho. */
+const { zap } = require("./src/layout");
+const Admin = require("./src/admin");
+const Pub = require("./src/publicado");
+const Google = require("./src/google");
 const Blog = require("./src/blog");
 const Inst = require("./src/institucional");
-const Acompanhar = require("./src/acompanhar");
+/* ==========================================================================
+   DESLIGADOS NA 0.4.0 — os arquivos continuam em src/, sem rota nenhuma:
+
+     src/consertos.js    telas por serviço e por modelo, com tabela de preços
+     src/coleta.js       formulário de agendamento da busca e leva
+     src/loja.js         vitrine, carrinho, checkout e pedido
+     src/acompanhar.js   consulta da ordem por código + telefone
+
+   NÃO CONFUNDIR com `src/medicao.js`, que CONTINUA EM USO: ele é o GA4 e o
+   Meta Pixel com o consentimento de cookies, chamado pelo `layout.js` em toda
+   página. O preço por modelo mora na tabela `precos`, lida por `apartirDe()`.
+
+   Não são `require` porque nada os chama: carregá-los a cada subida e mantê-los
+   na lista faria parecer que ainda servem a alguma coisa. Para religar qualquer
+   um, o caminho é o `require` mais a rota — o CHANGELOG da 0.4.0 diz quais
+   rotas eram.
+   ========================================================================== */
 const VERSAO = require("./package.json").version;
 
 const PORTA = Number(process.env.PORT) || 5202;
@@ -163,6 +183,39 @@ function lerCorpo(req) {
 }
 
 /* ==========================================================================
+   O CORPO EM BYTES — para a imagem do painel
+
+   `lerCorpo` monta um formulário a partir de texto; imagem não é texto, e
+   passá-la por ali a corromperia em silêncio (o byte 0x80 vira U+FFFD e o
+   arquivo gravado não abre mais).
+
+   O teto é conferido ENQUANTO chega, e não no fim: esperar o upload inteiro
+   para depois recusar é deixar qualquer um encher a memória do servidor com um
+   POST de 900 MB.
+   ========================================================================== */
+function lerBinario(req, teto) {
+  return new Promise((ok) => {
+    const partes = [];
+    let tamanho = 0;
+    req.on("data", (p) => {
+      tamanho += p.length;
+      if (tamanho > teto) { req.destroy(); return ok(null); }
+      partes.push(p);
+    });
+    req.on("end", () => ok(Buffer.concat(partes)));
+    req.on("error", () => ok(null));
+  });
+}
+
+/* A conexão chegou por https? Atrás do nginx o socket é http puro, e quem sabe
+   do certificado é o cabeçalho que o proxy acrescenta. Isso decide o `Secure`
+   do cookie de sessão: marcá-lo em http faria o navegador DESCARTAR o cookie,
+   e o login "não funcionaria" no desenvolvimento sem nenhuma mensagem. */
+function ehHttps(req) {
+  return String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https";
+}
+
+/* ==========================================================================
    FREIO DE ENVIO
 
    Balde por IP, só nos POSTs públicos. Não é defesa contra ataque grande — é o
@@ -210,7 +263,15 @@ const servidor = http.createServer(async (req, res) => {
      para /saude/ faria o monitoramento e o verificador do deploy receberem 303
      seguido de 404 — reportando o site como fora do ar com o site no ar.
      ========================================================================== */
-  const OPERACAO = ["/saude", "/robots.txt", "/sitemap.xml", "/manifest.webmanifest"];
+  /* "/orcamento" entra aqui porque NÃO é página: é um desvio para o WhatsApp.
+     Sem isto, o redirecionamento canônico o mandava para "/orcamento/" antes
+     de a rota existir — e a query ia junto, então a mensagem parecia montada
+     e o navegador parava num 404. */
+  const OPERACAO = ["/saude", "/robots.txt", "/sitemap.xml", "/manifest.webmanifest", "/orcamento",
+    /* A previa do painel tambem nao e pagina do site: sem isto o
+       redirecionamento canonico a mandaria para "/admin/previa/", que nao
+       existe — o mesmo tropeco que o /orcamento deu. */
+    "/admin/previa"];
   /* GET e HEAD, não só GET: o Google e o monitoramento pedem HEAD, e um HEAD
      que cai no 404 enquanto o GET redireciona certo faz o site ser reportado
      como quebrado sem que ninguém consiga reproduzir no navegador. */
@@ -224,6 +285,158 @@ const servidor = http.createServer(async (req, res) => {
 
   try {
     /* ======================================================== POSTs do site */
+    /* ====================================================================
+       O PAINEL DO DONO DA LOJA
+
+       Tudo aqui exige sessão, MENOS a tela em si e o `entrar`. A tela pode ser
+       servida a qualquer um porque ela não traz conteúdo nenhum: é casca vazia
+       que busca os dados por API depois de autenticar. Servir a casca a quem
+       não entrou evita um redirecionamento a mais e não entrega nada.
+
+       As respostas de dados levam `Cache-Control: no-store`: conteúdo do
+       painel não pode ficar no cache do navegador de uma máquina compartilhada
+       — e balcão de assistência técnica é o exemplo do computador que várias
+       pessoas usam.
+       ==================================================================== */
+    /* ====================================================================
+       VER COMO VAI FICAR
+
+       A MESMA home do site, montada lendo o rascunho. Não é uma segunda tela
+       que imita a primeira: uma cópia divergiria da real no dia seguinte, e a
+       pré-visualização que mente é pior que nenhuma.
+
+       Exige sessão. Sem isso, qualquer um leria o rascunho por este endereço —
+       e o rascunho é justamente o que ainda não deveria estar no ar.
+       ==================================================================== */
+    if (p === "/admin/previa") {
+      if (!Painel.lerSessao(req)) return redir(res, "/admin/");
+      const html = Pub.comoRascunho(() => Paginas.home(req));
+      return responder(res, 200, html, TIPOS[".html"], { "Cache-Control": "no-store" });
+    }
+
+    if (p === "/admin" || p === "/admin/") {
+      const html = fs.readFileSync(path.join(__dirname, "admin", "index.html"), "utf8")
+        .replaceAll("{{VERSAO}}", VERSAO);
+      return responder(res, 200, html, TIPOS[".html"], { "Cache-Control": "no-store" });
+    }
+
+    if (p.startsWith("/api/admin/")) {
+      const rota = p.slice("/api/admin/".length);
+      const semLoja = { "Cache-Control": "no-store" };
+      const jsonAdm = (codigo, obj) => responder(res, codigo,
+        JSON.stringify(obj), "application/json; charset=utf-8", semLoja);
+
+      /* ---- entrar: a única sem sessão, e a única com freio ---- */
+      if (rota === "entrar" && req.method === "POST") {
+        if (!Admin.freioEntrada(ipDe(req))) {
+          return jsonAdm(429, { error: "Muitas tentativas. Espere alguns minutos." });
+        }
+        const d = await lerCorpo(req);
+        const u = Admin.entrar(d.usuario, d.senha);
+        if (!u) return jsonAdm(401, { error: "Usuário ou senha incorretos." });
+        const token = Painel.abrirSessao(u.id);
+        res.setHeader("Set-Cookie", Painel.cookieSessao(token, ehHttps(req)));
+        return jsonAdm(200, { ok: true, nome: u.nome, usuario: u.usuario, papel: u.papel });
+      }
+
+      /* ---- daqui para baixo, sessão obrigatória ---- */
+      const sessao = Painel.lerSessao(req);
+      if (!sessao) return jsonAdm(401, { error: "Faça login para continuar." });
+
+      if (rota === "eu") return jsonAdm(200, { ok: true, ...sessao, versao: VERSAO });
+
+      if (rota === "sair" && req.method === "POST") {
+        Painel.fecharSessao(req);
+        res.setHeader("Set-Cookie", "alafcell_sessao=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax");
+        return jsonAdm(200, { ok: true });
+      }
+
+      /* ---- senha ---- */
+      if (rota === "senha" && req.method === "POST") {
+        const d = await lerCorpo(req);
+        const u = Q.um("SELECT senha FROM usuarios WHERE id = ?", sessao.id);
+        if (!Painel.confere(d.atual, u.senha)) {
+          return jsonAdm(400, { error: "A senha atual não confere." });
+        }
+        if (!d.nova || String(d.nova).length < 8) {
+          return jsonAdm(400, { error: "A senha nova precisa de pelo menos 8 caracteres." });
+        }
+        Q.roda("UPDATE usuarios SET senha = ? WHERE id = ?", Painel.cifrar(d.nova), sessao.id);
+        /* Trocar a senha derruba as OUTRAS sessões: se alguém tinha um cookie
+           roubado, ele para de valer no instante da troca. A daqui fica. */
+        Q.roda("DELETE FROM sessoes WHERE usuario_id = ? AND token <> ?", sessao.id,
+          (/(?:^|;\s*)alafcell_sessao=([^;]*)/.exec(req.headers.cookie || "") || [])[1] || "");
+        return jsonAdm(200, { ok: true });
+      }
+
+      /* ====================================================================
+         PUBLICAR
+
+         Copia o rascunho para o instantâneo que o site lê. É a única ação do
+         painel que muda o que o visitante vê — todo o resto grava e espera.
+         ==================================================================== */
+      if (rota === "publicar" && req.method === "POST") {
+        const feito = Pub.publicar(sessao.nome || sessao.usuario);
+        return jsonAdm(200, { ok: true, publicacao: feito });
+      }
+
+      /* Estado do site: há alteração esperando? quando foi a última vez? */
+      if (rota === "estado") {
+        return jsonAdm(200, {
+          pendente: Pub.haMudancas(),
+          ultima: Pub.ultima(),
+        });
+      }
+
+      /* ---- buscar as avaliações no Google ---- */
+      if (rota === "google" && req.method === "POST") {
+        /* `forcar`: o clique no botão é um pedido explícito, e esperar o cache
+           de 24h vencer faria o botão parecer quebrado para quem acabou de
+           corrigir o Place ID. */
+        const r = await Google.atualizar({ forcar: true });
+        return jsonAdm(200, r);
+      }
+
+      /* ---- acessos ---- */
+      if (rota === "acessos") return jsonAdm(200, Admin.acessos());
+
+      /* ---- textos do site ---- */
+      if (rota === "textos") {
+        if (req.method === "POST") {
+          const d = await lerCorpo(req);
+          return jsonAdm(200, Admin.gravarTextos(d));
+        }
+        return jsonAdm(200, { grupos: Admin.textos() });
+      }
+
+      /* ---- imagem ---- */
+      if (rota === "imagem" && req.method === "POST") {
+        const buf = await lerBinario(req, Admin.TETO_IMAGEM);
+        if (!buf) return jsonAdm(413, { error: "Imagem grande demais (o limite é 3 MB)." });
+        const r = Admin.gravarImagem(buf);
+        return jsonAdm(r.erro ? 400 : 200, r);
+      }
+
+      /* ---- as tabelas editáveis ---- */
+      const mTab = /^(servicos|marcas|modelos|posts|avaliacoes|faq)(?:\/(\d+))?$/.exec(rota);
+      if (mTab) {
+        const tabela = mTab[1];
+        const id = mTab[2] ? Number(mTab[2]) : 0;
+        if (req.method === "GET") return jsonAdm(200, { itens: Admin.listar(tabela) });
+        if (req.method === "POST") {
+          const d = await lerCorpo(req);
+          const r = Admin.gravar(tabela, id, d);
+          return jsonAdm(r.erro ? 400 : 200, r);
+        }
+        if (req.method === "DELETE" && id) {
+          const r = Admin.apagar(tabela, id);
+          return jsonAdm(r.erro ? 409 : 200, r);
+        }
+      }
+
+      return jsonAdm(404, { error: "rota do painel não encontrada" });
+    }
+
     if (req.method === "POST") {
       /* O acompanhamento fica FORA deste balde, e isso é conserto de um defeito
          que apareceu no teste: ele tem trava própria, mais apertada, e não grava
@@ -234,74 +447,18 @@ const servidor = http.createServer(async (req, res) => {
         return responder(res, 429, Paginas.erro404(req));
       const d = await lerCorpo(req);
 
-      /* ------------------------------------------------------- contato */
-      if (p === "/contato/") {
-        return redir(res, Inst.gravarContato(d) ? "/contato/?ok=1" : "/contato/?falta=1");
-      }
+      /* ====================================================================
+         NÃO HÁ MAIS POST NENHUM NO SITE (0.4.0)
 
-      /* -------------------------------------------------- busca e leva */
-      if (p === "/busca-e-leva/") {
-        return redir(res, Coleta.agendar(d) ? "/busca-e-leva/?ok=1#formulario"
-                                            : "/busca-e-leva/?falta=1#formulario");
-      }
+         Saíram, nesta ordem: contato, agendamento da coleta, carrinho
+         (adicionar e atualizar), checkout e a consulta de acompanhamento.
+         Todos viraram conversa no WhatsApp, que é onde esta assistência
+         atende de verdade.
 
-      /* ------------------------------------------------------ carrinho
-         O produto e a quantidade são conferidos AQUI, contra o banco. Um
-         `produto=999` ou `quantidade=-3` vindos de um formulário adulterado
-         não podem virar linha no carrinho. */
-      if (p === "/carrinho/adicionar") {
-        const prod = Q.um("SELECT id, estoque FROM produtos WHERE id = ? AND ativo = 1",
-          Number(d.produto));
-        if (!prod || prod.estoque <= 0) return redir(res, "/loja/");
-        const itens = Loja.ler(req);
-        const q = Math.max(1, Math.min(prod.estoque, Number(d.quantidade) || 1));
-        const achou = itens.find((i) => i.id === prod.id);
-        if (achou) achou.q = Math.min(prod.estoque, achou.q + q);
-        else itens.push({ id: prod.id, q });
-        Loja.gravar(res, itens);
-        return redir(res, "/carrinho/");
-      }
-
-      if (p === "/carrinho/atualizar") {
-        let itens = Loja.ler(req);
-        const removeu = d.remover ? true : false;
-        if (removeu) itens = itens.filter((i) => i.id !== Number(d.remover));
-        itens = itens
-          .map((i) => (d["q_" + i.id] === undefined ? i : { id: i.id, q: Number(d["q_" + i.id]) || 0 }))
-          .filter((i) => i.q > 0);
-        Loja.gravar(res, itens);
-        return redir(res, "/carrinho/" + (removeu ? "?removido=1" : ""));
-      }
-
-      /* ------------------------------------------------------ checkout */
-      if (p === "/checkout/enviar") {
-        const r = Loja.gravarPedido(d, req);
-        if (!r) return redir(res, "/carrinho/");
-        if (r.spam) return redir(res, "/loja/");            /* isca: engole e ignora */
-        if (r.falta) return redir(res, "/checkout/?falta=1");
-        /* Dois cookies numa resposta só: o carrinho é esvaziado JUNTO com o
-           desvio, senão um F5 na tela do pedido repetiria a compra. E o cookie
-           do pedido é o que autoriza a ver aquela tela — sem ele, trocar o
-           código na barra de endereço mostraria o pedido de outra pessoa. */
-        res.setHeader("Set-Cookie", [
-          "alafcell_cesta=" + encodeURIComponent("[]") + "; Path=/; Max-Age=0; SameSite=Lax",
-          "alafcell_pedido=" + r.codigo + "; Path=/; Max-Age=" + (7 * 86400) + "; SameSite=Lax",
-        ]);
-        return redir(res, "/pedido/" + r.codigo + "/");
-      }
-
-      /* -------------------------------------------- acompanhar a ordem
-         Consulta por POST, e não por GET: o código e o telefone não podem
-         ficar no histórico do navegador nem no log do servidor — e um endereço
-         com os dois dentro circula em conversa de WhatsApp. */
-      if (p === "/acompanhar/") {
-        const r = Acompanhar.buscar(d.codigo, d.telefone, ipDe(req));
-        registrar(req, "/acompanhar/");
-        return responder(res, r.ordem ? 200 : 404, Acompanhar.pagina(req, {
-          ordem: r.ordem || null, erro: r.erro || "", codigo: String(d.codigo || ""),
-        }));
-      }
-
+         O bloco fica aqui, vazio, porque a alternativa seria o
+         `if (req.method === "POST")` sumir e o servidor responder 404 de
+         qualquer jeito — só que sem dizer a ninguém que isso foi decisão.
+         ==================================================================== */
       return responder(res, 404, Paginas.erro404(req));
     }
 
@@ -313,46 +470,53 @@ const servidor = http.createServer(async (req, res) => {
 
     const partes = p.split("/").filter(Boolean);
 
-    /* -------------------------------------------------------- consertos */
-    if (partes[0] === "consertos") {
-      registrar(req, "/consertos/");
-      if (partes.length === 1) return responder(res, 200, Consertos.lista(req, q));
-      if (partes.length === 2) {
-        const html = Consertos.servico(req, partes[1]);
-        return html ? responder(res, 200, html) : responder(res, 404, Paginas.erro404(req));
-      }
+    /* ====================================================================
+       O ORÇAMENTO VIRA A PRIMEIRA MENSAGEM DO WHATSAPP
+
+       Esta rota não desenha nada: lê o que a pessoa escolheu na landing,
+       escreve a mensagem e responde um 302 para o `wa.me`. É o que permite o
+       formulário continuar sendo um form GET de verdade, sem depender de
+       JavaScript para montar o link — numa assistência técnica, quem chega
+       com o aparelho ruim e a rede pior é o público, não a exceção.
+
+       OS NOMES SAEM DO BANCO, e não da query. O que chega na URL é um slug, e
+       mandar o slug cru ("galaxy-a54") entregaria ao atendente um texto de
+       máquina. É também o que impede forjar mensagem: só entra no texto o que
+       existe cadastrado e ativo.
+       ==================================================================== */
+    if (p === "/orcamento") {
+      registrar(req, "/orcamento");
+      /* DO INSTANTÂNEO: um modelo que o dono desativou e ainda não publicou
+         não pode entrar na mensagem que chega no WhatsApp da loja. */
+      const marcaNome = (Pub.marcaPorSlug(q.marca) || {}).nome || "";
+      const modeloNome = (Pub.modeloPorSlug(q.modelo) || {}).nome || "";
+      const servicoNome = q.servico === "outro"
+        ? "Outro problema"
+        : (Pub.servicoPorSlug(q.servico) || {}).nome || "";
+
+      const msg = ["Olá! Vim pelo site e queria um orçamento."];
+      const aparelho = [marcaNome, modeloNome].filter(Boolean).join(" ");
+      if (aparelho) msg.push("Aparelho: " + aparelho + ".");
+      if (servicoNome) msg.push("Serviço: " + servicoNome + ".");
+      /* Sem nada escolhido a mensagem ainda vale: melhor a conversa começar
+         vazia do que não começar. Quem não soube dizer o modelo no site diz no
+         WhatsApp, com o aparelho na mão. */
+      if (!aparelho && !servicoNome) msg.push("Pode me ajudar?");
+
+      return redir(res, zap(msg.join(" ")));
     }
 
-    /* ----------------------------------------------------- busca e leva */
-    if (p === "/busca-e-leva/") {
-      registrar(req, "/busca-e-leva/");
-      return responder(res, 200, Coleta.pagina(req, q));
-    }
+    /* ====================================================================
+       LOJA, CARRINHO, CHECKOUT E PEDIDO SAÍRAM (0.4.0)
 
-    /* -------------------------------------------------------------- loja */
-    if (partes[0] === "loja") {
-      registrar(req, "/loja/");
-      const html = Loja.lista(req, partes[1] || "", q);
-      return html ? responder(res, 200, html) : responder(res, 404, Paginas.erro404(req));
-    }
+       Não há loja virtual por enquanto. As rotas foram REMOVIDAS, e não
+       escondidas atrás de uma bandeira: rota que existe e não deveria é rota
+       que alguém acha pelo sitemap velho, pelo histórico do navegador ou por
+       um link que ficou num WhatsApp de três meses atrás.
 
-    if (partes[0] === "produto" && partes.length === 2) {
-      registrar(req, "/produto/");
-      const html = Loja.produto(req, partes[1]);
-      return html ? responder(res, 200, html) : responder(res, 404, Paginas.erro404(req));
-    }
-
-    if (p === "/carrinho/") return responder(res, 200, Loja.carrinho(req, q));
-
-    if (p === "/checkout/") {
-      const html = Loja.checkout(req, q);
-      return html ? responder(res, 200, html) : redir(res, "/carrinho/");
-    }
-
-    if (partes[0] === "pedido" && partes.length === 2) {
-      const html = Loja.pedido(req, partes[1]);
-      return html ? responder(res, 200, html) : responder(res, 404, Paginas.erro404(req));
-    }
+       `src/loja.js` continua no repositório, sem `require` e sem rota, para o
+       dia em que a loja voltar. O CHANGELOG lista o que precisa ser religado.
+       ==================================================================== */
 
     /* -------------------------------------------------------------- blog */
     if (partes[0] === "blog") {
@@ -365,17 +529,18 @@ const servidor = http.createServer(async (req, res) => {
     }
 
     /* ------------------------------------------------------ acompanhar */
-    if (p === "/acompanhar/") {
-      registrar(req, "/acompanhar/");
-      return responder(res, 200, Acompanhar.pagina(req));
-    }
+    /* ====================================================================
+       ACOMPANHAR E CONTATO SAÍRAM (0.4.0)
 
-    /* ----------------------------------------------------- institucional */
-    if (p === "/contato/") {
-      registrar(req, "/contato/");
-      return responder(res, 200, Inst.contato(req, q));
-    }
-    if (p === "/privacidade/") return responder(res, 200, Inst.privacidade(req));
+       O acompanhamento por código foi embora com a landing: quem está com o
+       aparelho na assistência pergunta na conversa de WhatsApp que já existe.
+       Contato virou a seção "#contato" da própria página.
+
+       A PRIVACIDADE FICA, e fora do menu. O site recebe nome e telefone pelo
+       WhatsApp e mede acesso; sem a página, o rodapé apontaria para o vazio e
+       a LGPD não teria onde ser respondida.
+       ==================================================================== */
+        if (p === "/privacidade/") return responder(res, 200, Inst.privacidade(req));
 
     /* ==========================================================================
        MODELOS DE UMA MARCA
@@ -388,44 +553,58 @@ const servidor = http.createServer(async (req, res) => {
        tem por que circular.
        ========================================================================== */
     if (p === "/api/modelos") {
-      const modelos = Q.todos(
-        `SELECT m.slug, m.nome FROM modelos m JOIN marcas ma ON ma.id = m.marca_id
-         WHERE ma.slug = ? AND m.ativo = 1 AND ma.ativo = 1 ORDER BY m.ordem, m.nome`,
-        String(q.marca || ""));
-      return json(res, 200, { modelos });
+      /* Do instantâneo, como o resto do site: o seletor não pode oferecer um
+         modelo que ainda está em rascunho — a pessoa o escolheria e o
+         `/orcamento` não saberia o nome dele. */
+      const modelos = Pub.modelos()
+        .filter((m) => !q.marca || m.marca_slug === q.marca)
+        .map((m) => ({ slug: m.slug, nome: m.nome }));
+      return responder(res, 200, JSON.stringify({ modelos }),
+        "application/json; charset=utf-8");
     }
 
-    /* --------------------------------------------------------- operação */
+    /* ====================================================================
+       SAUDE — a pergunta "o site subiu?"
+
+       Nao e enfeite de monitoramento: o `deploy.sh` pede isto com `curl -fsS`
+       depois de reiniciar o servico, e `-f` FALHA em 404. Sem a rota, toda
+       entrega esgotava as 20 tentativas e reportava que o site nao subiu — com
+       o site no ar e funcionando.
+
+       Os tres avisos (demo, chave Pix de demonstracao, conteudo) sao lidos
+       daqui pelo deploy: e o unico lugar onde alguem olha a cada entrega, e
+       por isso o lugar certo para lembrar do que ainda e provisorio.
+
+       NAO devolve nada que sirva a um atacante: sem caminho de arquivo, sem
+       versao de dependencia, sem contagem que revele movimento da loja.
+       ==================================================================== */
     if (p === "/saude") {
-      return json(res, 200, {
-        ok: true, versao: VERSAO,
-        servicos: Q.um("SELECT COUNT(*) c FROM servicos WHERE ativo=1").c,
-        produtos: Q.um("SELECT COUNT(*) c FROM produtos WHERE ativo=1").c,
-        ordens: Q.um("SELECT COUNT(*) c FROM ordens").c,
-        /* Os dois avisos que precisam viajar para FORA do processo. O log da
-           subida só é lido por quem está no terminal naquele minuto; aqui o
-           deploy e o monitoramento enxergam que o site ainda está com preço de
-           demonstração e com uma chave Pix que não recebe dinheiro. */
+      const pix = txt("pagamento.pix_chave", "");
+      return responder(res, 200, JSON.stringify({
+        ok: true,
+        versao: VERSAO,
+        site: Endereco.SITE,
+        indexavel: Endereco.INDEXAVEL,
         demo: Demo.LIGADO,
-        pixDemo: txt("pagamento.pix_chave", "") === Demo.CHAVE_DEMO,
-      });
+        pixDemo: !pix || pix === Demo.CHAVE_DEMO,
+      }), TIPOS[".json"]);
     }
 
-    if (p === "/robots.txt") return responder(res, 200, Endereco.robots(), TIPOS[".txt"]);
+    /* ====================================================================
+       ROBOTS.TXT
 
-    if (p === "/manifest.webmanifest") {
-      return responder(res, 200, JSON.stringify({
-        name: txt("marca.nome", "Alafcell Assistec"),
-        short_name: "Alafcell",
-        start_url: "/",
-        display: "standalone",
-        background_color: "#0B0C0E",
-        theme_color: "#0B0C0E",
-        icons: [
-          { src: "/assets/img/icone-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/assets/img/icone-512.png", sizes: "512x512", type: "image/png" },
-        ],
-      }), TIPOS[".webmanifest"]);
+       A funcao que monta o arquivo mora em `src/endereco.js` desde o comeco e
+       e exportada — mas a ROTA nunca foi escrita, e `/robots.txt` respondia
+       404. O caminho estava ate na lista OPERACAO (que so o poupa do
+       redirecionamento canonico), o que fazia tudo parecer resolvido.
+
+       O que isso custava: no dominio real, nenhuma regra e nenhuma linha
+       `Sitemap:` — o buscador descobre o sitemap por ali. No endereco de
+       trabalho, uma das duas defesas contra indexacao nao existia (o
+       cabecalho `X-Robots-Tag` segurava sozinho).
+       ==================================================================== */
+    if (p === "/robots.txt") {
+      return responder(res, 200, Endereco.robots(), TIPOS[".txt"]);
     }
 
     if (p === "/sitemap.xml") {
@@ -434,23 +613,45 @@ const servidor = http.createServer(async (req, res) => {
          contradizendo o robots.txt que acabou de pedir o contrário. */
       const urls = [];
       if (Endereco.INDEXAVEL) {
-        urls.push("/", "/consertos/", "/busca-e-leva/", "/loja/", "/loja/smartphone/",
-          "/loja/seminovos/", "/loja/acessorio/", "/loja/periferico/", "/blog/",
-          "/contato/", "/privacidade/");
-        for (const m of Q.todos("SELECT slug FROM marcas WHERE ativo=1"))
-          urls.push(`/consertos/?marca=${m.slug}`);
-        for (const m of Q.todos("SELECT slug FROM modelos WHERE ativo=1 AND popular=1"))
-          urls.push(`/consertos/?modelo=${m.slug}`);
-        for (const s of Q.todos("SELECT slug FROM servicos WHERE ativo=1"))
-          urls.push(`/consertos/${s.slug}/`);
-        for (const pr of Q.todos("SELECT slug FROM produtos WHERE ativo=1"))
-          urls.push(`/produto/${pr.slug}/`);
-        for (const b of Q.todos("SELECT slug FROM posts WHERE publicado=1"))
-          urls.push(`/blog/${b.slug}/`);
+        /* ================================================================
+           O SITEMAP ENCOLHEU COM O SITE (0.4.0)
+
+           Ele oferecia ao Google quase setenta endereços: um por serviço, um
+           por marca, um por modelo popular, um por produto. Todos dão 404
+           agora. Sitemap que aponta para 404 não é só inútil — é o sinal que
+           o buscador usa para desconfiar do resto, e as páginas mortas ficam
+           meses no índice atrapalhando quem procura a loja.
+
+           Sobraram as três que existem de verdade: a landing, o blog e cada
+           matéria. O `/orcamento` NÃO entra: ele não é página, é um desvio
+           para o WhatsApp, e indexá-lo colocaria a conversa da assistência
+           no resultado de busca.
+           ================================================================ */
+        /* `lastmod` DIZ AO BUSCADOR O QUE MUDOU.
+
+           Sem ele, todas as páginas parecem igualmente antigas e o buscador
+           revisita na mesma cadência — matéria publicada hoje pode levar
+           semanas para aparecer. A data da landing é a da última publicação,
+           porque publicar é o que muda o site; a de cada matéria é a dela.
+
+           Data ausente é omitida em vez de virar "hoje": `lastmod` mentindo
+           gasta rastreamento à toa e o buscador aprende a ignorá-lo. */
+        const doSite = Pub.quando();
+        urls.push(["/", doSite], ["/blog/", doSite], ["/privacidade/", doSite]);
+        /* Matéria não publicada não entra no sitemap: o Google iria buscá-la
+           e receberia 404. */
+        for (const b of Pub.posts()) urls.push([`/blog/${b.slug}/`, b.data || doSite]);
       }
+      const dia = (v) => {
+        const d = new Date(v);
+        return v && !isNaN(d) ? d.toISOString().slice(0, 10) : "";
+      };
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url><loc>${Endereco.SITE}${u}</loc></url>`).join("\n")}
+${urls.map(([u, q]) => {
+  const m = dia(q);
+  return `  <url><loc>${Endereco.SITE}${u}</loc>${m ? `<lastmod>${m}</lastmod>` : ""}</url>`;
+}).join("\n")}
 </urlset>`;
       return responder(res, 200, xml, TIPOS[".xml"]);
     }

@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel — Alafcell Assistec</title>
+<link rel="icon" href="/assets/img/favicon.ico">
+<style>
+/* ==========================================================================
+   O PAINEL USA A IDENTIDADE DO SITE, e não um tema de administração genérico.
+
+   Grafite e o vermelho medido no logotipo (#E50000). O vermelho continua sendo
+   cor de AÇÃO — botão, estado, alerta —, nunca decoração: se ele estiver em
+   tudo, para de avisar qualquer coisa.
+
+   Contraste conferido: #E50000 sobre o grafite dá 4,04:1, que passa para peça
+   grande e componente de interface e REPROVA para texto pequeno. Por isso o
+   texto em vermelho aqui só aparece grande ou sobre branco.
+   ========================================================================== */
+:root{
+  --grafite:#15171a; --grafite2:#1d2024; --linha:#2b2f35; --linha2:#3a3f47;
+  --texto:#e9ecef; --fraco:#9aa3ad; --apagado:#6f7780;
+  --vermelho:#e50000; --vermelho-luz:#ff4d4d; --verde:#25c26e; --ambar:#f0a92a;
+  --papel:#f7f8f9; --tinta:#15171a;
+  --r:12px;
+}
+*{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
+body{font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--grafite);color:var(--texto);min-height:100vh}
+h1,h2,h3{line-height:1.25}
+button{font:inherit;cursor:pointer;color:inherit}
+a{color:var(--vermelho-luz)}
+
+input,select,textarea{width:100%;padding:.6rem .7rem;font:inherit;color:var(--texto);
+  background:var(--grafite);border:1.5px solid var(--linha2);border-radius:9px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--vermelho);
+  box-shadow:0 0 0 3px rgba(229,0,0,.22)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;font-size:.76rem;font-weight:600;color:var(--fraco);margin:.75rem 0 .25rem}
+
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1.05rem;
+  border-radius:999px;border:1.5px solid transparent;font-weight:700;white-space:nowrap}
+.btn--acao{background:var(--vermelho);color:#fff}
+.btn--acao:hover{background:#c40000}
+.btn--linha{background:transparent;border-color:var(--linha2);color:var(--texto)}
+.btn--linha:hover{border-color:var(--vermelho)}
+.btn--perigo{background:transparent;border-color:#5a2b2b;color:var(--vermelho-luz)}
+.btn--sm{padding:.35rem .75rem;font-size:.84rem}
+
+/* --------------------------------------------------------------- entrada */
+#entrar{position:fixed;inset:0;display:grid;place-items:center;padding:1.4rem;z-index:60;
+  background:radial-gradient(1200px 600px at 50% -10%,#22262b,var(--grafite))}
+#entrar .caixa{width:min(360px,94vw);background:var(--grafite2);border:1px solid var(--linha);
+  border-radius:18px;padding:2rem;text-align:center}
+#entrar img{height:44px;margin:0 auto .9rem;display:block}
+
+/* ----------------------------------------------------------------- corpo */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+aside{background:var(--grafite2);border-right:1px solid var(--linha);padding:1rem .8rem;
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:auto}
+aside .marca{display:flex;align-items:center;gap:.5rem;font-weight:800;margin:.2rem .2rem 1.1rem}
+aside .marca img{height:26px}
+.navbtn{display:block;width:100%;text-align:left;padding:.55rem .7rem;border-radius:9px;
+  border:0;background:none;color:var(--fraco);font-weight:600;margin-bottom:.1rem;text-decoration:none}
+.navbtn:hover{background:#24282e;color:var(--texto)}
+.navbtn.on{background:var(--vermelho);color:#fff}
+.navtopo{display:flex;align-items:center;justify-content:space-between;width:100%;
+  padding:.5rem .7rem;border:0;background:none;color:var(--apagado);font-weight:700;
+  font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;margin:.5rem 0 .1rem}
+.navtopo::after{content:"▾";transition:transform .2s}
+.navtopo[aria-expanded="true"]::after{transform:rotate(180deg)}
+.navsub{display:none;margin:0 0 .3rem .4rem;padding-left:.5rem;border-left:2px solid var(--linha)}
+.navtopo[aria-expanded="true"]+.navsub{display:block}
+.versao{margin-top:.6rem;text-align:center;font-size:.7rem;color:var(--apagado)}
+
+main{padding:1.7rem 2rem;max-width:1060px}
+.painel{display:none}.painel.on{display:block}
+.topo{display:flex;justify-content:space-between;align-items:center;gap:1rem;
+  flex-wrap:wrap;margin-bottom:1.3rem}
+.cartao{background:var(--grafite2);border:1px solid var(--linha);border-radius:var(--r);
+  padding:1.1rem 1.2rem;margin-bottom:1rem}
+.dica{font-size:.82rem;color:var(--fraco);line-height:1.6}
+.grade2{display:grid;grid-template-columns:1fr 1fr;gap:0 1.1rem}
+
+/* ------------------------------------------------------------- registros */
+.linha{background:var(--grafite2);border:1px solid var(--linha);border-radius:var(--r);
+  margin-bottom:.7rem;overflow:hidden}
+.linha__cab{display:flex;align-items:center;gap:.7rem;padding:.7rem .9rem;cursor:pointer}
+.linha__cab:hover{background:#24282e}
+.linha__nome{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.linha__corpo{padding:.2rem 1rem 1rem;border-top:1px solid var(--linha)}
+.selo{font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;white-space:nowrap}
+.selo--on{background:rgba(37,194,110,.16);color:var(--verde)}
+.selo--off{background:#2b2f35;color:var(--apagado)}
+.acoes{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;flex-wrap:wrap}
+
+/* ------------------------------------------------------- editor de texto */
+.ed{border:1.5px solid var(--linha2);border-radius:9px;overflow:hidden;background:var(--grafite)}
+.ed:focus-within{border-color:var(--vermelho);box-shadow:0 0 0 3px rgba(229,0,0,.22)}
+.ed__barra{display:flex;flex-wrap:wrap;gap:.15rem;padding:.35rem;
+  background:var(--grafite2);border-bottom:1px solid var(--linha)}
+.ed__bt{min-width:34px;height:34px;border:1px solid transparent;border-radius:7px;
+  background:none;color:var(--fraco);font-size:.9rem;line-height:1;cursor:pointer}
+.ed__bt:hover{background:var(--grafite);border-color:var(--linha2);color:var(--texto)}
+.ed__sep{width:1px;background:var(--linha2);margin:.25rem .3rem}
+.ed__area{min-height:120px;max-height:50vh;overflow:auto;padding:.7rem .8rem;
+  line-height:1.65;outline:none;color:var(--texto)}
+.ed__area:empty::before{content:"Escreva aqui…";color:var(--apagado)}
+/* Sem isto o <ul> herda o `*{margin:0}` do topo e a lista sai colada na
+   margem — a pessoa formata, não vê diferença nenhuma e acha que não pegou. */
+.ed__area p{margin:0 0 .6rem}
+.ed__area p:last-child{margin-bottom:0}
+.ed__area ul,.ed__area ol{margin:.4rem 0 .7rem;padding-left:1.5rem}
+.ed__area li{margin:.15rem 0}
+.ed__area h2,.ed__area h3{margin:.7rem 0 .4rem;font-size:1.05rem;color:var(--texto)}
+.ed__area blockquote{margin:.6rem 0;padding-left:.8rem;
+  border-left:3px solid var(--linha2);color:var(--fraco)}
+.ed__area a{color:var(--vermelho-luz)}
+.ed__area strong,.ed__area b{font-weight:700}
+/* A caixa de HTML ocupa o MESMO lugar da área formatada — trocar de modo não
+   pode fazer a página pular. Monoespaçada porque aqui o alinhamento é o que
+   se lê. */
+.ed__fonte{display:none;width:100%;border:0;outline:0;resize:vertical;
+  padding:.7rem .8rem;min-height:120px;max-height:50vh;
+  font:12.5px/1.6 ui-monospace,Consolas,monospace;
+  color:var(--texto);background:var(--grafite)}
+
+/* ---------------------------------------------------------------- imagem */
+.img{display:flex;gap:.8rem;align-items:flex-start;margin-top:.3rem}
+.img__prev{width:104px;height:74px;object-fit:cover;border-radius:9px;
+  border:1px solid var(--linha2);background:var(--grafite)}
+.img__vazio{width:104px;height:74px;display:grid;place-items:center;border-radius:9px;
+  border:1px dashed var(--linha2);color:var(--apagado);font-size:.7rem;text-align:center}
+
+/* --------------------------------------------------------------- acessos */
+.numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;margin-bottom:1rem}
+.numero{background:var(--grafite2);border:1px solid var(--linha);border-radius:var(--r);padding:.9rem 1rem}
+.numero b{display:block;font-size:1.8rem;line-height:1.1}
+.numero span{font-size:.72rem;color:var(--apagado);font-weight:600}
+.barras{display:flex;align-items:flex-end;gap:2px;height:120px;margin-top:.8rem}
+.barra{flex:1;background:linear-gradient(180deg,var(--vermelho),#7a0000);border-radius:3px 3px 0 0;min-height:3px}
+.barra:hover{background:var(--vermelho-luz)}
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.tab{width:100%;border-collapse:collapse;font-size:.86rem}
+.tab td{padding:.4rem 0;border-bottom:1px solid var(--linha)}
+.tab td:last-child{text-align:right;font-weight:700}
+.tab tr:last-child td{border-bottom:0}
+
+/* ----------------------------------------------------- barra de publicar
+   FIXA NO RODAPÉ, e não no topo da página de cada tela: a pessoa termina de
+   editar embaixo, e é embaixo que a mão dela está. A barra só existe quando há
+   alteração esperando — barra permanente vira moldura, e moldura ninguém lê. */
+.publicar{position:fixed;left:0;right:0;bottom:0;z-index:70;display:none;
+  align-items:center;gap:1rem;padding:.8rem 1.2rem;
+  background:var(--grafite2);border-top:2px solid var(--vermelho)}
+body.tem-pendencia .publicar{display:flex}
+/* O conteúdo não pode terminar embaixo da barra: sem isto, o último campo de
+   cada tela fica coberto justamente quando há algo para publicar. */
+body.tem-pendencia main{padding-bottom:6rem}
+.publicar__txt{flex:1;min-width:0;font-size:.88rem}
+.publicar__txt b{color:var(--vermelho-luz)}
+.publicar__quando{font-size:.76rem;color:var(--apagado)}
+
+/* ----------------------------------------------------------------- aviso */
+.aviso{position:fixed;left:50%;bottom:1.2rem;transform:translate(-50%,150%);
+  background:var(--vermelho);color:#fff;padding:.7rem 1.2rem;border-radius:999px;
+  font-weight:700;transition:transform .3s;z-index:80;max-width:92vw;text-align:center}
+.aviso.on{transform:translate(-50%,0)}
+.aviso.bom{background:var(--verde);color:#06210f}
+
+/* ==========================================================================
+   O CELULAR — o dono da loja mexe no painel do balcão, com o celular na mão.
+   Bloco no FIM do arquivo de propósito: regra de tela pequena escrita no meio
+   perde por ORDEM para tudo que vier depois com a mesma especificidade.
+   ========================================================================== */
+.abrir-menu{display:none}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  main{padding:calc(52px + 1rem) 1rem 1rem}
+  .grade2,.duas{grid-template-columns:1fr}
+
+  .barra-topo{display:flex;align-items:center;gap:.6rem;position:fixed;top:0;left:0;right:0;
+    height:52px;padding:0 .7rem;z-index:50;background:var(--grafite2);border-bottom:1px solid var(--linha)}
+  .abrir-menu{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;
+    border:1px solid transparent;border-radius:10px;background:none;color:var(--texto)}
+  aside{position:fixed;top:0;bottom:0;left:0;height:100dvh;width:min(272px,84vw);z-index:70;
+    transform:translateX(-100%);transition:transform .22s ease;box-shadow:6px 0 40px rgba(0,0,0,.5)}
+  body.menu-aberto aside{transform:none}
+  .veu{position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.55);opacity:0;
+    pointer-events:none;transition:opacity .22s}
+  body.menu-aberto .veu{opacity:1;pointer-events:auto}
+  body.menu-aberto{overflow:hidden}
+  /* Campo com menos de 16px faz o Safari ampliar a página no foco, e ela não
+     volta sozinha — o dono digitaria o endereço e perderia o resto da tela. */
+  body{font-size:16px}
+  .btn{padding:.62rem 1.1rem}
+  .navbtn,.navtopo{padding:.7rem .8rem}
+}
+@media (min-width:861px){ .barra-topo,.veu{display:none} }
+</style>
+</head>
+<body>
+
+<!-- ====================================================================== -->
+<div id="entrar" hidden>
+  <div class="caixa">
+    <img src="/assets/img/logotipo-texto.webp" alt="Alafcell Assistec">
+    <h2 style="margin-bottom:.3rem;font-size:1.1rem">Painel do site</h2>
+    <p class="dica" style="margin-bottom:1rem">Entre para editar o conteúdo.</p>
+    <label for="e-usuario" style="text-align:left">Usuário</label>
+    <input id="e-usuario" autocomplete="username">
+    <label for="e-senha" style="text-align:left">Senha</label>
+    <input id="e-senha" type="password" autocomplete="current-password">
+    <button class="btn btn--acao" style="width:100%;justify-content:center;margin-top:1rem"
+            onclick="entrar()">Entrar</button>
+    <p class="versao">v{{VERSAO}}</p>
+  </div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="app" id="app" hidden>
+  <header class="barra-topo">
+    <button class="abrir-menu" type="button" onclick="alternarMenu()" aria-label="Abrir o menu">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <b>Painel</b>
+  </header>
+  <div class="veu" onclick="fecharMenu()"></div>
+
+  <aside id="menu">
+    <span class="marca"><img src="/assets/img/emblema.webp" alt=""> Painel</span>
+
+    <button class="navbtn on" data-tela="inicio">Início</button>
+    <button class="navbtn" data-tela="acessos">Acessos</button>
+
+    <!-- ==================================================================
+         AS TELAS SEGUEM A ORDEM DA PÁGINA, e não a ordem das tabelas do
+         banco. Quem edita está pensando "quero mudar o texto do topo", não
+         "quero atualizar a tabela config" — o menu tem de responder à
+         pergunta de quem usa.
+         ================================================================== -->
+    <div>
+      <button class="navtopo" type="button" aria-expanded="true">A empresa</button>
+      <div class="navsub">
+        <button class="navbtn" data-tela="marca">Marca e contato</button>
+        <button class="navbtn" data-tela="loja">Endereço e horário</button>
+      </div>
+    </div>
+
+    <div>
+      <button class="navtopo" type="button" aria-expanded="true">A página</button>
+      <div class="navsub">
+        <button class="navbtn" data-tela="home">Topo da página</button>
+        <button class="navbtn" data-tela="consertos">O que a gente conserta</button>
+        <button class="navbtn" data-tela="coleta">Busca e leva</button>
+        <button class="navbtn" data-tela="etapas">Como funciona</button>
+        <button class="navbtn" data-tela="confianca">Por que confiar</button>
+        <button class="navbtn" data-tela="faq">Perguntas frequentes</button>
+        <button class="navbtn" data-tela="google">Recomendações</button>
+        <button class="navbtn" data-tela="legal">Garantia</button>
+        <button class="navbtn" data-tela="aparelhos">Marcas e modelos</button>
+      </div>
+    </div>
+
+    <div>
+      <button class="navtopo" type="button" aria-expanded="true">Blog</button>
+      <div class="navsub">
+        <button class="navbtn" data-tela="posts">Matérias</button>
+        <button class="navbtn" data-tela="blog">Textos do blog</button>
+      </div>
+    </div>
+
+    <div>
+      <button class="navtopo" type="button" aria-expanded="false">Avançado</button>
+      <div class="navsub">
+        <button class="navbtn" data-tela="medicao">Analytics</button>
+        <button class="navbtn" data-tela="pagamento">Pagamento</button>
+      </div>
+    </div>
+
+    <div style="margin-top:auto">
+      <button class="navbtn" data-tela="senha">Trocar a senha</button>
+      <a class="navbtn" href="/" target="_blank">↗ Ver o site</a>
+      <button class="navbtn" onclick="sair()">Sair</button>
+      <p class="versao" id="versao">v—</p>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ---------------------------------------------------------- início -->
+    <section class="painel on" id="t-inicio">
+      <div class="topo"><h1>Início</h1></div>
+      <div class="cartao">
+        <p class="dica">O que você edita aqui fica <b>guardado como rascunho</b>. O site
+          continua mostrando a última versão publicada até você clicar em
+          <b>Publicar</b> — assim dá para mexer em várias telas e o visitante nunca
+          vê o site pela metade.</p>
+        <p class="dica" style="margin-top:.6rem">Quando houver algo esperando, uma barra
+          aparece no rodapé com o botão. Antes de publicar, dá para conferir em
+          <b>Ver como vai ficar</b>.</p>
+      </div>
+      <div class="numeros" id="in-numeros"></div>
+      <div class="cartao" id="in-pendencias"></div>
+    </section>
+
+    <!-- --------------------------------------------------------- acessos -->
+    <section class="painel" id="t-acessos">
+      <div class="topo"><h1>Acessos</h1>
+        <button class="btn btn--linha btn--sm" onclick="carregarAcessos()">↻ Atualizar</button></div>
+      <div class="numeros" id="ac-numeros"></div>
+      <div class="cartao">
+        <h3 style="font-size:1rem">Últimos 30 dias</h3>
+        <p class="dica" id="ac-janela"></p>
+        <div class="barras" id="ac-barras"></div>
+      </div>
+      <div class="duas">
+        <div class="cartao">
+          <h3 style="font-size:1rem;margin-bottom:.6rem">Páginas mais vistas</h3>
+          <table class="tab" id="ac-rotas"></table>
+        </div>
+        <div class="cartao">
+          <h3 style="font-size:1rem;margin-bottom:.6rem">Como isso é medido</h3>
+          <p class="dica">A contagem roda no próprio servidor. <b>Não usa cookie</b> e
+            <b>não guarda o IP</b> — só um código embaralhado dele, que serve para saber
+            que duas visitas foram da mesma pessoa sem saber quem ela é.</p>
+          <p class="dica" style="margin-top:.6rem">Por isso ela conta todo mundo, inclusive
+            quem recusa os cookies de medição. O Google Analytics, se você ligar em
+            <b>Analytics</b>, conta só quem aceita — os números não vão bater, e o certo
+            é este.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ textos por grupo -->
+    <section class="painel" id="t-marca"><div class="topo"><h1>Marca e contato</h1></div><div id="g-marca"></div></section>
+    <section class="painel" id="t-loja"><div class="topo"><h1>Endereço e horário</h1></div><div id="g-loja"></div></section>
+    <section class="painel" id="t-home"><div class="topo"><h1>Topo da página</h1></div><div id="g-home"></div></section>
+    <section class="painel" id="t-coleta"><div class="topo"><h1>Busca e leva</h1></div><div id="g-coleta"></div></section>
+    <section class="painel" id="t-legal"><div class="topo"><h1>Garantia</h1></div><div id="g-legal"></div></section>
+
+    <section class="painel" id="t-etapas">
+      <div class="topo"><h1>Como funciona</h1></div>
+      <div class="cartao"><p class="dica">Os quatro passos que a página mostra. É a
+        promessa que a loja faz — quem responde por ela no balcão é você, então ela
+        se edita aqui.</p></div>
+      <div id="g-etapas"></div>
+    </section>
+
+    <section class="painel" id="t-confianca">
+      <div class="topo"><h1>Por que confiar</h1></div>
+      <div class="cartao"><p class="dica">No primeiro motivo, o <b>prazo de garantia
+        entra sozinho</b> no começo da frase — ele vem da tela <b>Garantia</b>, para o
+        número não existir em dois lugares e um deles ficar desatualizado.</p></div>
+      <div id="g-confianca"></div>
+    </section>
+
+    <section class="painel" id="t-blog">
+      <div class="topo"><h1>Textos do blog</h1></div>
+      <div class="cartao"><p class="dica">Os títulos da seção do blog na página inicial
+        e da página <a href="/blog/" target="_blank">/blog/</a>. As matérias em si ficam
+        em <b>Blog → Matérias</b>.</p></div>
+      <div id="g-blog"></div>
+    </section>
+
+    <!-- ==================================================================
+         PERGUNTAS FREQUENTES
+
+         Vale a pena o dono entender POR QUE esta tela existe, senão ela vira
+         a última que ele preenche — quando é a de maior retorno de busca do
+         site inteiro.
+         ================================================================== -->
+    <section class="painel" id="t-faq">
+      <div class="topo"><h1>Perguntas frequentes</h1>
+        <button class="btn btn--acao btn--sm" onclick="novo('faq')">+ Nova pergunta</button></div>
+
+      <div class="cartao">
+        <p class="dica"><b>Esta é a tela que mais traz gente nova ao site.</b> Seu site é
+          uma página só — o Google tem uma página para mostrar, e ela concorre com as
+          franquias, que têm uma página para cada serviço. Cada pergunta aqui responde
+          uma busca de verdade ("quanto tempo demora para trocar a tela", "vocês buscam
+          em casa") <b>sem precisar de página nova</b>.</p>
+        <p class="dica" style="margin-top:.6rem">O Google costuma mostrar essas perguntas
+          direto no resultado da busca, abaixo do link do site — é espaço a mais na tela
+          de quem está procurando, de graça.</p>
+        <p class="dica" style="margin-top:.6rem">⚠ <b>Só escreva pergunta que a página
+          responde.</b> Marcar pergunta que o visitante não encontra no site faz o Google
+          tirar o site inteiro desse recurso.</p>
+        <p class="dica" style="margin-top:.6rem">Escreva a pergunta <b>do jeito que o
+          cliente fala</b>, não do jeito técnico: "vou perder minhas fotos?" traz mais
+          gente que "há perda de dados no procedimento?".</p>
+      </div>
+
+      <div id="lista-faq"></div>
+    </section>
+
+    <!-- ==================================================================
+         RECOMENDAÇÕES
+         ================================================================== -->
+    <section class="painel" id="t-google">
+      <div class="topo"><h1>Recomendações do Google</h1>
+        <button class="btn btn--acao btn--sm" onclick="novo('avaliacoes')">+ Nova avaliação</button></div>
+
+      <div class="cartao">
+        <p class="dica"><b>Copie e cole avaliações de verdade</b>, da sua ficha no
+          Google. Não invente texto nem nome: quem lê o site pode conferir no link do
+          selo em dois cliques, e um elogio que ninguém escreveu custa mais do que
+          vale.</p>
+        <p class="dica" style="margin-top:.6rem">A página mostra <b>no máximo 3</b>, e
+          <b>só as de 5 estrelas</b> — do jeito que você pediu. Pode cadastrar quantas
+          quiser: as demais ficam guardadas e entram quando você mudar a ordem ou
+          desmarcar alguma.</p>
+        <p class="dica" style="margin-top:.6rem">Enquanto não houver nenhuma avaliação
+          de 5 estrelas ativa, <b>a seção inteira não aparece no site</b> — em vez de
+          estrear vazia.</p>
+      </div>
+
+      <div id="g-google"></div>
+
+      <!-- ==============================================================
+           BUSCAR NO GOOGLE
+           ============================================================== -->
+      <div class="cartao">
+        <div class="topo" style="margin:0 0 .6rem">
+          <h2 style="font-size:1.05rem">Buscar do Google</h2>
+          <button class="btn btn--linha btn--sm" onclick="buscarGoogle()">↻ Buscar agora</button>
+        </div>
+        <p class="dica">Com o <b>Place ID</b> e a <b>chave da API</b> preenchidos acima, as
+          avaliações vêm direto da sua ficha no Google — e o cadastro manual abaixo
+          deixa de ser usado. A busca acontece <b>uma vez por dia</b>, não a cada visita:
+          cada consulta é cobrada na sua conta do Google Cloud.</p>
+        <p class="dica" style="margin-top:.6rem">⚠ O Google devolve <b>no máximo 5
+          avaliações</b>, escolhidas por ele — não dá para pedir as melhores. Das cinco,
+          o site usa as de 5 estrelas, até três. Se a loja não tiver três de 5 estrelas
+          entre essas cinco, a seção mostra menos.</p>
+        <div id="gg-estado" class="dica" style="margin-top:.8rem"></div>
+      </div>
+
+      <h2 style="font-size:1.05rem;margin:1.6rem 0 .8rem">Avaliações cadastradas à mão</h2>
+      <p class="dica" style="margin-bottom:.8rem">Usadas <b>enquanto a busca do Google não
+        estiver configurada</b>. Com ela ligada, estas ficam guardadas e não aparecem.</p>
+      <div id="lista-avaliacoes"></div>
+    </section>
+    <section class="painel" id="t-medicao">
+      <div class="topo"><h1>Analytics</h1></div>
+      <div class="cartao"><p class="dica">Deixe em branco para não medir nada.
+        Com um código preenchido, o site passa a mostrar o aviso de cookies e só
+        carrega a medição <b>depois do aceite</b> — é o que a LGPD exige.</p></div>
+      <div id="g-medicao"></div>
+    </section>
+    <section class="painel" id="t-pagamento">
+      <div class="topo"><h1>Pagamento</h1></div>
+      <div class="cartao"><p class="dica">⚠ A loja virtual está <b>desligada</b> desde a
+        versão 0.4.0, então estes campos <b>não aparecem no site</b> hoje. Ficam aqui
+        guardados para quando a loja voltar.</p></div>
+      <div id="g-pagamento"></div>
+    </section>
+
+    <!-- ------------------------------------------------------- consertos -->
+    <section class="painel" id="t-consertos">
+      <div class="topo"><h1>O que a gente conserta</h1>
+        <button class="btn btn--acao btn--sm" onclick="novo('servicos')">+ Novo conserto</button></div>
+      <p class="dica" style="margin-bottom:1rem">Esta é a lista que aparece na seção
+        <b>“O que a gente conserta”</b> e no seletor de orçamento. O site mostra os
+        <b>6 primeiros</b> por ordem — o resto continua valendo no orçamento.
+        <b>Não há preço:</b> o valor sai depois de olhar o aparelho.</p>
+      <div id="lista-servicos"></div>
+    </section>
+
+    <!-- ------------------------------------------------------- aparelhos -->
+    <section class="painel" id="t-aparelhos">
+      <div class="topo"><h1>Marcas e modelos</h1></div>
+      <p class="dica" style="margin-bottom:1rem">São as opções do seletor de orçamento.
+        O que a pessoa escolher aqui entra na mensagem que chega no seu WhatsApp.</p>
+      <div class="topo"><h2 style="font-size:1.05rem">Marcas</h2>
+        <button class="btn btn--linha btn--sm" onclick="novo('marcas')">+ Nova marca</button></div>
+      <div id="lista-marcas"></div>
+      <div class="topo" style="margin-top:1.6rem"><h2 style="font-size:1.05rem">Modelos</h2>
+        <button class="btn btn--linha btn--sm" onclick="novo('modelos')">+ Novo modelo</button></div>
+      <p class="dica" style="margin-bottom:1rem">Marque <b>“mais consertado”</b> para o
+        modelo aparecer como atalho embaixo do formulário de orçamento.</p>
+      <div id="lista-modelos"></div>
+    </section>
+
+    <!-- ------------------------------------------------------------ blog -->
+    <section class="painel" id="t-posts">
+      <div class="topo"><h1>Blog</h1>
+        <button class="btn btn--acao btn--sm" onclick="novo('posts')">+ Nova matéria</button></div>
+      <p class="dica" style="margin-bottom:1rem">As <b>3 mais recentes</b> aparecem na
+        página inicial. Todas ficam em <a href="/blog/" target="_blank">/blog/</a>.</p>
+      <div id="lista-posts"></div>
+    </section>
+
+    <!-- ----------------------------------------------------------- senha -->
+    <section class="painel" id="t-senha">
+      <div class="topo"><h1>Trocar a senha</h1></div>
+      <div class="cartao" style="max-width:420px">
+        <label>Senha atual</label><input type="password" id="s-atual" autocomplete="current-password">
+        <label>Senha nova</label><input type="password" id="s-nova" autocomplete="new-password">
+        <p class="dica" style="margin-top:.5rem">Pelo menos 8 caracteres. Ao trocar, as
+          sessões abertas em outros aparelhos são encerradas.</p>
+        <div class="acoes"><button class="btn btn--acao" onclick="trocarSenha()">Trocar</button></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ======================================================================
+     A BARRA DE PUBLICAR
+
+     O site NÃO muda quando você salva: ele mostra a última versão publicada.
+     Salvar guarda; publicar é que põe no ar. Foi assim que o cliente pediu, e
+     resolve um problema real — mexer em três telas deixava o site pela metade
+     entre um salvamento e outro.
+     ====================================================================== -->
+<div class="publicar" id="barra-publicar">
+  <div class="publicar__txt">
+    <b>Há alterações não publicadas.</b>
+    O site ainda mostra a versão anterior.
+    <div class="publicar__quando" id="pub-quando"></div>
+  </div>
+  <a class="btn btn--linha btn--sm" href="/admin/previa" target="_blank" rel="noopener">Ver como vai ficar</a>
+  <button class="btn btn--acao" id="pub-botao" onclick="publicar()">Publicar</button>
+</div>
+
+<div class="aviso" id="aviso"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   O PAINEL
+
+   Uma tela só, sem framework e sem passo de build — igual ao resto do parque.
+   O HTML acima é a casca; tudo o que aparece dentro vem da API depois de
+   autenticar, e por isso servir esta página a quem não entrou não entrega nada.
+   ========================================================================== */
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t == null ? "" : t)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+let TIMER_AVISO = 0;
+function aviso(texto, bom) {
+  const a = $("#aviso");
+  a.textContent = texto;
+  a.className = "aviso on" + (bom ? " bom" : "");
+  clearTimeout(TIMER_AVISO);
+  TIMER_AVISO = setTimeout(() => { a.className = "aviso"; }, 3400);
+}
+
+/* Toda conversa com o servidor passa por aqui: um lugar só para tratar a
+   sessão que caiu. Sem isso, cada tela precisaria lembrar de fazer o mesmo — e
+   a que esquecesse mostraria "erro" onde o certo é pedir a senha de novo. */
+async function api(rota, metodo = "GET", dados) {
+  const opcoes = { method: metodo, headers: {} };
+  if (dados) {
+    opcoes.headers["Content-Type"] = "application/x-www-form-urlencoded";
+    opcoes.body = new URLSearchParams(dados).toString();
+  }
+  const r = await fetch("/api/admin/" + rota, opcoes);
+  if (r.status === 401) { mostrarEntrada(); throw new Error("Faça login para continuar."); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "Não deu certo.");
+  return j;
+}
+
+/* ------------------------------------------------------------------ entrar */
+function mostrarEntrada() { $("#entrar").hidden = false; $("#app").hidden = true; }
+async function entrar() {
+  try {
+    await api("entrar", "POST", { usuario: $("#e-usuario").value, senha: $("#e-senha").value });
+    $("#e-senha").value = "";
+    await iniciar();
+  } catch (e) { aviso(e.message); }
+}
+$("#e-senha").addEventListener("keydown", (ev) => { if (ev.key === "Enter") entrar(); });
+
+async function sair() {
+  try { await api("sair", "POST", {}); } catch { /* já caiu, tudo bem */ }
+  location.reload();
+}
+
+async function trocarSenha() {
+  try {
+    await api("senha", "POST", { atual: $("#s-atual").value, nova: $("#s-nova").value });
+    $("#s-atual").value = ""; $("#s-nova").value = "";
+    aviso("Senha trocada.", true);
+  } catch (e) { aviso(e.message); }
+}
+
+/* ---------------------------------------------------------------- navegação */
+document.querySelectorAll(".navtopo").forEach((t) => t.addEventListener("click", () => {
+  t.setAttribute("aria-expanded", t.getAttribute("aria-expanded") === "true" ? "false" : "true");
+}));
+
+function alternarMenu() { document.body.classList.toggle("menu-aberto"); }
+function fecharMenu() { document.body.classList.remove("menu-aberto"); }
+addEventListener("keydown", (e) => { if (e.key === "Escape") fecharMenu(); });
+addEventListener("resize", () => { if (innerWidth > 860) fecharMenu(); });
+
+document.querySelectorAll(".navbtn[data-tela]").forEach((b) => b.addEventListener("click", () => {
+  fecharMenu();   /* no celular a gaveta cobre a tela que a pessoa acabou de pedir */
+  document.querySelectorAll(".navbtn[data-tela]").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on");
+  document.querySelectorAll(".painel").forEach((x) => x.classList.remove("on"));
+  const tela = b.dataset.tela;
+  $("#t-" + tela).classList.add("on");
+  if (tela === "acessos") carregarAcessos();
+  if (tela === "inicio") carregarInicio();
+}));
+
+/* ==========================================================================
+   O EDITOR DE TEXTO FORMATADO
+
+   Substitui todo `<textarea>` do painel. O dono da loja escreve como escreve
+   no Word — negrito, lista, subtítulo, link — e o site mostra assim.
+
+   ---------------------------------------------------------------------------
+   COLAR ENTRA COMO TEXTO PURO, SEMPRE
+
+   Quem copia do Word ou de um site traz junto `<span style="mso-...">`, fonte,
+   tamanho, cor e o resto do lixo do editor de origem. Isso passa despercebido
+   na tela do painel e aparece no site como um parágrafo de outra fonte, em
+   outro tamanho, no meio do texto. O `execCommand` é antigo e está marcado como
+   obsoleto — mas é o que os navegadores realmente implementam para
+   contenteditable, e a alternativa seria escrever um editor inteiro.
+
+   ---------------------------------------------------------------------------
+   O QUE PROTEGE DE VERDADE NÃO É ISTO
+
+   O filtro que vale é o do SERVIDOR (`src/html-seguro.js`): trava de navegador
+   se contorna mandando o texto direto para a API com um `curl`. Aqui é conforto
+   de quem escreve; lá é segurança.
+   ========================================================================== */
+const ED_BOTOES = [
+  ["bold", "B", "Negrito (Ctrl+B)", "font-weight:800"],
+  ["italic", "I", "Itálico (Ctrl+I)", "font-style:italic"],
+  ["underline", "U", "Sublinhado", "text-decoration:underline"],
+  ["|", "", "", ""],
+  ["formatBlock:h2", "T¹", "Subtítulo grande", "font-weight:700"],
+  ["formatBlock:h3", "T²", "Subtítulo menor", "font-weight:600;font-size:.8rem"],
+  ["formatBlock:p", "¶", "Parágrafo normal", ""],
+  ["|", "", "", ""],
+  ["insertUnorderedList", "•—", "Lista com marcadores", ""],
+  ["insertOrderedList", "1—", "Lista numerada", ""],
+  ["formatBlock:blockquote", "❝", "Citação", ""],
+  ["|", "", "", ""],
+  ["link", "🔗", "Inserir link", ""],
+  ["unlink", "⛓", "Tirar o link", ""],
+  ["|", "", "", ""],
+  ["removeFormat", "T̶", "Limpar formatação", ""],
+  ["html", "&lt;/&gt;", "Ver e escrever o HTML", "font-size:.72rem;font-weight:700"],
+];
+
+let edSeq = 0;
+
+/* `attrs` são os atributos que identificam o campo (data-chave ou data-campo).
+   Eles vão para o input OCULTO, que é quem o salvar lê — a área editável não
+   tem `value`, e ler `innerHTML` na hora de salvar espalharia essa regra por
+   todo lugar que grava. */
+function editorRico(attrs, valor) {
+  const id = "ed" + (++edSeq);
+  const barra = ED_BOTOES.map(([cmd, rot, titulo, estilo]) =>
+    cmd === "|" ? '<span class="ed__sep"></span>'
+      : `<button type="button" class="ed__bt" title="${esc(titulo)}"
+                 style="${estilo}" onclick="edCmd('${id}','${cmd}')">${rot}</button>`).join("");
+  return `<div class="ed" id="${id}-caixa">
+    <div class="ed__barra" role="toolbar" aria-label="Formatação">${barra}</div>
+    <div class="ed__area" id="${id}-ed" contenteditable="true" role="textbox" aria-multiline="true"
+         oninput="edSync('${id}')" onblur="edSync('${id}')"
+         onpaste="edColar(event)">${paraHTML(valor)}</div>
+    <textarea class="ed__fonte" id="${id}-html" spellcheck="false"
+              oninput="edSync('${id}')" onblur="edSync('${id}')"></textarea>
+    <input type="hidden" id="${id}" ${attrs} value="${esc(valor || "")}">
+  </div>`;
+}
+
+/* O conteúdo antigo é texto puro, com parágrafos separados por linha em branco.
+   Jogá-lo cru no contenteditable transformaria tudo num parágrafo só — quebra
+   de linha não é marcação. Converte na ABERTURA; a partir do primeiro
+   salvamento já sai HTML. */
+function paraHTML(v) {
+  const t = String(v || "").trim();
+  if (!t) return "";
+  if (/<(p|br|ul|ol|li|h2|h3|blockquote|div|strong|b|em|i|a)\b/i.test(t)) return t;
+  return t.split(/\n{2,}/).map((par) => `<p>${esc(par.trim()).replace(/\n/g, "<br>")}</p>`).join("");
+}
+
+function edCmd(id, cmd) {
+  const area = document.getElementById(id + "-ed");
+  const fonte = document.getElementById(id + "-html");
+  if (cmd === "html") {
+    /* Trocar de modo SINCRONIZA nos dois sentidos, senão o que foi escrito de
+       um lado some ao abrir o outro. */
+    const vendoHtml = fonte.style.display === "block";
+    if (vendoHtml) { area.innerHTML = fonte.value; area.style.display = ""; fonte.style.display = "none"; }
+    else { fonte.value = area.innerHTML.trim(); area.style.display = "none"; fonte.style.display = "block"; }
+    edSync(id);
+    return;
+  }
+  /* Com o HTML à mostra, os botões não têm onde agir: a área formatada está
+     escondida, e formatar ali mexeria no que ninguém está vendo. */
+  if (fonte.style.display === "block") return;
+  area.focus();
+  if (cmd === "link") {
+    const url = prompt("Endereço do link (https://…, /pagina/ ou mailto:…):", "https://");
+    if (url) document.execCommand("createLink", false, url);
+  } else if (cmd.startsWith("formatBlock:")) {
+    document.execCommand("formatBlock", false, cmd.split(":")[1]);
+  } else {
+    document.execCommand(cmd, false, null);
+  }
+  edSync(id);
+}
+
+function edSync(id) {
+  const area = document.getElementById(id + "-ed");
+  const campo = document.getElementById(id);
+  const fonte = document.getElementById(id + "-html");
+  if (!area || !campo) return;
+  if (fonte && fonte.style.display === "block") { campo.value = fonte.value.trim(); return; }
+  /* Apagar tudo raramente deixa a caixa realmente vazia: o navegador guarda um
+     `<br>` solto, e se o texto estava numa lista guarda a lista inteira. A
+     regra é o que se ENXERGA — sem texto visível, o campo está vazio. */
+  campo.value = area.textContent.trim() === "" ? "" : area.innerHTML.trim();
+}
+
+function edColar(ev) {
+  ev.preventDefault();
+  const texto = (ev.clipboardData || window.clipboardData).getData("text/plain");
+  document.execCommand("insertText", false, texto);
+}
+
+/* ==========================================================================
+   TEXTOS DO SITE
+
+   Um cartão por grupo, com os campos na ordem em que o conteúdo foi declarado.
+   O `tipo` decide o controle: `area` vira textarea (parágrafos), `url` vira
+   campo de link, o resto é uma linha.
+   ========================================================================== */
+let GRUPOS = [];
+
+function pintarTextos() {
+  for (const g of GRUPOS) {
+    const alvo = $("#g-" + g.grupo);
+    if (!alvo) continue;      /* grupo sem tela própria: ignorado, não inventado */
+    alvo.innerHTML = '<div class="cartao">' + g.campos.map((c) => {
+      const id = "cfg-" + c.chave.replace(/\./g, "-");
+      const controle = c.tipo === "area"
+        ? editorRico(`data-chave="${esc(c.chave)}"`, c.valor)
+        : `<input id="${id}" data-chave="${esc(c.chave)}" ${c.tipo === "url" ? 'type="url"' : ""}
+                  value="${esc(c.valor)}">`;
+      return `<label for="${id}">${esc(c.rotulo || c.chave)}</label>${controle}`
+        + (c.ajuda ? `<p class="dica">${esc(c.ajuda)}</p>` : "");
+    }).join("")
+    + `<div class="acoes"><button class="btn btn--acao" onclick="salvarGrupo('${g.grupo}')">Salvar</button></div>`
+    + "</div>";
+  }
+}
+
+async function salvarGrupo(grupo) {
+  const dados = {};
+  document.querySelectorAll(`#g-${grupo} [data-chave]`).forEach((el) => {
+    dados[el.dataset.chave] = el.value;
+  });
+  try {
+    await api("textos", "POST", dados);
+    aviso("Salvo. Falta publicar para ir ao ar.", true);
+    await carregarTextos();
+    carregarInicio();
+    await verEstado();
+  } catch (e) { aviso(e.message); }
+}
+
+async function carregarTextos() {
+  GRUPOS = (await api("textos")).grupos || [];
+  pintarTextos();
+}
+
+/* ==========================================================================
+   AS LISTAS (consertos, marcas, modelos, blog)
+
+   Cada registro é uma sanfona: fechada mostra nome e situação; aberta mostra o
+   formulário. Vinte formulários abertos ao mesmo tempo não se leem, e a lista
+   é justamente onde se procura UM item para mexer.
+   ========================================================================== */
+const DADOS = { servicos: [], marcas: [], modelos: [], posts: [], avaliacoes: [], faq: [] };
+
+/* A declaração de cada formulário. Fica aqui, e não espalhada no HTML, porque
+   é ela que diz o que existe — e um campo esquecido some do painel em silêncio. */
+const FORM = {
+  servicos: [
+    ["nome", "Nome do conserto", "texto"],
+    ["chamada", "Frase curta (aparece no cartão)", "area"],
+    ["descricao", "Descrição completa", "area"],
+    ["sintomas", "Sintomas (um por linha)", "area"],
+    ["prazo_horas", "Prazo de bancada, em horas", "numero"],
+    ["garantia_dias", "Garantia, em dias", "numero"],
+    ["icone", "Ícone", "icone"],
+    ["ordem", "Ordem na lista", "numero"],
+    ["destaque", "Destacar", "sim"],
+    ["ativo", "Aparece no site", "sim"],
+  ],
+  marcas: [
+    ["nome", "Nome da marca", "texto"],
+    ["ordem", "Ordem", "numero"],
+    ["ativo", "Aparece no seletor", "sim"],
+  ],
+  modelos: [
+    ["nome", "Nome do modelo", "texto"],
+    ["marca_id", "Marca", "marca"],
+    ["ano", "Ano", "numero"],
+    ["ordem", "Ordem", "numero"],
+    ["popular", "Mais consertado (vira atalho)", "sim"],
+    ["ativo", "Aparece no seletor", "sim"],
+  ],
+  faq: [
+    ["pergunta", "A pergunta", "texto"],
+    ["resposta", "A resposta", "area"],
+    ["ordem", "Ordem", "numero"],
+    ["ativo", "Aparece no site", "sim"],
+  ],
+  avaliacoes: [
+    ["autor", "Quem escreveu (primeiro nome)", "texto"],
+    ["texto", "O que a pessoa escreveu", "area"],
+    ["estrelas", "Estrelas (1 a 5)", "numero"],
+    ["quando", "Quando (ex.: há 2 meses)", "texto"],
+    ["ordem", "Ordem", "numero"],
+    ["ativo", "Pode aparecer no site", "sim"],
+  ],
+  posts: [
+    ["titulo", "Título", "texto"],
+    ["resumo", "Resumo (aparece na lista)", "area"],
+    ["corpo", "Texto da matéria", "area"],
+    ["etiqueta", "Etiqueta", "texto"],
+    ["autor", "Autor", "texto"],
+    ["data", "Data (AAAA-MM-DD)", "texto"],
+    ["capa", "Imagem de capa", "imagem"],
+    ["publicado", "Publicado", "sim"],
+  ],
+};
+
+const ICONES = ["tela", "bateria", "carga", "camera", "som", "placa", "agua", "software"];
+
+const rotulo = (tabela, r) => {
+  if (tabela === "posts") return r.titulo || "(sem título)";
+  if (tabela === "faq") return r.pergunta || "(sem pergunta)";
+  /* A avaliação não tem nome: o que identifica a linha é o começo do texto,
+     que é justamente o que a pessoa procura quando vai mexer numa delas. */
+  if (tabela === "avaliacoes") {
+    const t = String(r.texto || "").trim();
+    return (r.autor ? r.autor + " — " : "") + (t ? t.slice(0, 46) + (t.length > 46 ? "…" : "")
+                                                 : "(sem texto)");
+  }
+  return r.nome || "(sem nome)";
+};
+
+const ligado = (tabela, r) => (tabela === "posts" ? r.publicado : r.ativo);
+
+/* A avaliação diz TAMBÉM quantas estrelas tem: uma de 4 fica ativa e mesmo
+   assim não aparece na página (a regra é "só as de 5"), e sem esta marca o
+   dono acharia que o site está ignorando o que ele cadastrou. */
+const marcaExtra = (tabela, r) => {
+  if (tabela !== "avaliacoes") return "";
+  const n = Number(r.estrelas) || 0;
+  return n === 5
+    ? '<span class="selo selo--on">5 estrelas</span>'
+    : `<span class="selo selo--off">${n} estrela(s) — não aparece</span>`;
+};
+
+function pintarLista(tabela) {
+  const alvo = $("#lista-" + tabela);
+  if (!alvo) return;
+  const itens = DADOS[tabela];
+  if (!itens.length) {
+    alvo.innerHTML = '<p class="dica">Nada cadastrado ainda.</p>';
+    return;
+  }
+  alvo.innerHTML = itens.map((r) => `
+    <div class="linha" data-id="${r.id}">
+      <div class="linha__cab" onclick="abrir('${tabela}', ${r.id})">
+        <span class="linha__nome">${esc(rotulo(tabela, r))}</span>
+        ${marcaExtra(tabela, r)}
+        <span class="selo ${ligado(tabela, r) ? "selo--on" : "selo--off"}">${
+          ligado(tabela, r) ? "no site" : "oculto"}</span>
+      </div>
+      <div class="linha__corpo" hidden></div>
+    </div>`).join("");
+}
+
+function campo(tabela, r, [nome, rot, tipo]) {
+  const id = `f-${tabela}-${r.id}-${nome}`;
+  const v = r[nome] == null ? "" : r[nome];
+  if (tipo === "sim") {
+    return `<label style="display:flex;align-items:center;gap:.5rem;margin-top:.9rem">
+      <input type="checkbox" id="${id}" data-campo="${nome}" style="width:auto"
+             ${v ? "checked" : ""}> <span>${esc(rot)}</span></label>`;
+  }
+  if (tipo === "area") {
+    return `<label>${esc(rot)}</label>` + editorRico(`data-campo="${nome}"`, v);
+  }
+  if (tipo === "marca") {
+    return `<label for="${id}">${esc(rot)}</label>
+      <select id="${id}" data-campo="${nome}">${
+        DADOS.marcas.map((m) => `<option value="${m.id}"${
+          String(m.id) === String(v) ? " selected" : ""}>${esc(m.nome)}</option>`).join("")
+      }</select>`;
+  }
+  if (tipo === "icone") {
+    return `<label for="${id}">${esc(rot)}</label>
+      <select id="${id}" data-campo="${nome}">${
+        ICONES.map((i) => `<option value="${i}"${i === v ? " selected" : ""}>${i}</option>`).join("")
+      }</select>`;
+  }
+  if (tipo === "imagem") {
+    return `<label>${esc(rot)}</label>
+      <div class="img">
+        ${v ? `<img class="img__prev" id="${id}-prev" src="${esc(v)}" alt="">`
+            : `<div class="img__vazio" id="${id}-prev">sem imagem</div>`}
+        <div style="flex:1">
+          <input id="${id}" data-campo="${nome}" value="${esc(v)}" placeholder="/assets/img/...">
+          <p class="dica">Envie um arquivo JPG, PNG ou WEBP de até 3 MB.
+            O site <b>não redimensiona</b> — mande a imagem já no tamanho certo.</p>
+          <input type="file" accept="image/jpeg,image/png,image/webp"
+                 style="margin-top:.4rem;padding:.3rem"
+                 onchange="enviarImagem(this, '${id}')">
+        </div>
+      </div>`;
+  }
+  return `<label for="${id}">${esc(rot)}</label>
+    <input id="${id}" data-campo="${nome}" ${tipo === "numero" ? 'inputmode="numeric"' : ""}
+           value="${esc(v)}">`;
+}
+
+function abrir(tabela, id) {
+  const caixa = document.querySelector(`#lista-${tabela} .linha[data-id="${id}"] .linha__corpo`);
+  if (!caixa) return;
+  if (!caixa.hidden) { caixa.hidden = true; caixa.innerHTML = ""; return; }
+  const r = DADOS[tabela].find((x) => String(x.id) === String(id));
+  caixa.innerHTML = FORM[tabela].map((c) => campo(tabela, r, c)).join("")
+    + `<div class="acoes">
+        <button class="btn btn--perigo btn--sm" onclick="remover('${tabela}', ${id})">Apagar</button>
+        <button class="btn btn--acao" onclick="salvar('${tabela}', ${id})">Salvar</button>
+      </div>`;
+  caixa.hidden = false;
+}
+
+async function salvar(tabela, id) {
+  const caixa = document.querySelector(`#lista-${tabela} .linha[data-id="${id}"] .linha__corpo`);
+  const dados = {};
+  caixa.querySelectorAll("[data-campo]").forEach((el) => {
+    dados[el.dataset.campo] = el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value;
+  });
+  try {
+    await api(tabela + "/" + id, "POST", dados);
+    aviso("Salvo. Falta publicar para ir ao ar.", true);
+    await carregarTabela(tabela);
+    await verEstado();
+  } catch (e) { aviso(e.message); }
+}
+
+async function novo(tabela) {
+  try {
+    /* Nasce com o mínimo e OCULTO: um registro em branco que já aparecesse no
+       site poria um cartão vazio na página enquanto o dono ainda escreve. */
+    const base = tabela === "posts"
+      ? { titulo: "Nova matéria", publicado: "0", data: new Date().toISOString().slice(0, 10) }
+      : tabela === "avaliacoes"
+      ? { autor: "", texto: "", estrelas: "5", ativo: "0" }
+      : tabela === "faq"
+      ? { pergunta: "", resposta: "", ativo: "0" }
+      : { nome: "Novo", ativo: "0" };
+    const r = await api(tabela, "POST", base);
+    await carregarTabela(tabela);
+    abrir(tabela, r.id);
+    aviso("Criado. Preencha, marque para aparecer e publique.", true);
+    await verEstado();
+  } catch (e) { aviso(e.message); }
+}
+
+async function remover(tabela, id) {
+  const r = DADOS[tabela].find((x) => String(x.id) === String(id));
+  if (!confirm(`Apagar "${rotulo(tabela, r)}"?\n\nIsso não tem desfazer.`)) return;
+  try {
+    await api(tabela + "/" + id, "DELETE");
+    aviso("Apagado. Falta publicar para sair do ar.", true);
+    await carregarTabela(tabela);
+    await verEstado();
+  } catch (e) { aviso(e.message); }
+}
+
+async function enviarImagem(entrada, idCampo) {
+  const arquivo = entrada.files && entrada.files[0];
+  if (!arquivo) return;
+  try {
+    const r = await fetch("/api/admin/imagem", { method: "POST", body: arquivo });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Não consegui enviar a imagem.");
+    const campoTexto = document.getElementById(idCampo);
+    campoTexto.value = j.caminho;
+    const prev = document.getElementById(idCampo + "-prev");
+    if (prev) {
+      const img = new Image();
+      img.className = "img__prev"; img.id = idCampo + "-prev"; img.src = j.caminho;
+      prev.replaceWith(img);
+    }
+    aviso("Imagem enviada. Agora clique em Salvar.", true);
+  } catch (e) { aviso(e.message); }
+  entrada.value = "";
+}
+
+async function carregarTabela(tabela) {
+  DADOS[tabela] = (await api(tabela)).itens || [];
+  pintarLista(tabela);
+}
+
+/* ==========================================================================
+   PUBLICAR
+
+   `estado` é consultado depois de toda gravação. Poderia ser deduzido na tela
+   ("salvou, então tem pendência"), mas aí o painel mentiria em dois casos: ao
+   ABRIR com alteração deixada de ontem, e quando alguém salva um valor igual
+   ao que já estava publicado. Quem sabe se há diferença é o servidor, que
+   compara o rascunho com o que está no ar.
+   ========================================================================== */
+async function verEstado() {
+  let e;
+  try { e = await api("estado"); } catch { return; }
+  document.body.classList.toggle("tem-pendencia", !!e.pendente);
+  const quando = $("#pub-quando");
+  if (e.ultima && e.ultima.criado) {
+    const d = new Date(e.ultima.criado);
+    quando.textContent = "Última publicação: " + d.toLocaleString("pt-BR")
+      + (e.ultima.quem ? " · por " + e.ultima.quem : "");
+  } else {
+    quando.textContent = "Este site ainda não foi publicado nenhuma vez.";
+  }
+}
+
+async function publicar() {
+  const b = $("#pub-botao");
+  b.disabled = true;
+  const antes = b.textContent;
+  b.textContent = "Publicando…";
+  try {
+    await api("publicar", "POST", {});
+    aviso("Publicado. O site está mostrando a versão nova.", true);
+    await verEstado();
+  } catch (e) { aviso(e.message); }
+  b.disabled = false;
+  b.textContent = antes;
+}
+
+/* ==========================================================================
+   BUSCAR AS AVALIAÇÕES NO GOOGLE
+   ========================================================================== */
+async function buscarGoogle() {
+  const caixa = $("#gg-estado");
+  caixa.textContent = "Falando com o Google…";
+  try {
+    const r = await api("google", "POST", {});
+    if (!r.ok) {
+      /* O recado vem do servidor porque é lá que se sabe o que o Google
+         respondeu — "REQUEST_DENIED" sozinho manda a pessoa pesquisar na
+         internet; a frase do servidor manda ela ao lugar certo. */
+      caixa.innerHTML = `<b style="color:var(--vermelho-luz)">Não deu certo.</b> ${esc(r.recado || "")}`;
+      return;
+    }
+    const n = (r.avaliacoes || []).length;
+    caixa.innerHTML = `<b style="color:var(--verde)">Encontradas.</b> `
+      + `O Google devolveu ${r.recebidas} avaliação(ões); ${n} com 5 estrelas `
+      + `${n ? "vão para o site" : "— a seção fica vazia"}.`
+      + (r.nota ? `<br>Nota da loja: <b>${esc(r.nota)}</b> · ${esc(r.total)} avaliações.` : "")
+      + `<br><b>Falta publicar</b> para isso aparecer no site.`;
+    await verEstado();
+  } catch (e) { caixa.textContent = e.message; }
+}
+
+/* ==========================================================================
+   ACESSOS
+   ========================================================================== */
+const nf = new Intl.NumberFormat("pt-BR");
+
+async function carregarAcessos() {
+  let a;
+  try { a = await api("acessos"); } catch (e) { return aviso(e.message); }
+
+  $("#ac-numeros").innerHTML = [
+    [a.hoje, "hoje"], [a.semana, "últimos 7 dias"], [a.mes, "últimos 30 dias"],
+    [a.total, "desde o início"], [a.visitantesMes, "pessoas no mês"],
+    [a.visitantes, "pessoas no total"],
+  ].map(([v, r]) => `<div class="numero"><b>${nf.format(v)}</b><span>${r}</span></div>`).join("");
+
+  /* A barra é desenhada em proporção ao MAIOR dia. Sem isso, um pico de 300
+     achataria todos os outros contra o chão e o gráfico não diria nada. */
+  const dias = a.porDia || [];
+  const maior = Math.max(1, ...dias.map((d) => d.total));
+  $("#ac-barras").innerHTML = dias.length
+    ? dias.map((d) => `<div class="barra" style="height:${Math.round(d.total / maior * 100)}%"
+        title="${esc(d.dia)}: ${nf.format(d.total)} acesso(s)"></div>`).join("")
+    : '<p class="dica">Ainda não há acesso registrado.</p>';
+  $("#ac-janela").textContent = dias.length
+    ? `${dias.length} dia(s) com movimento · pico de ${nf.format(maior)} num dia`
+    : "";
+
+  $("#ac-rotas").innerHTML = (a.topRotas || []).length
+    ? a.topRotas.map((r) =>
+        `<tr><td>${esc(r.rota)}</td><td>${nf.format(r.total)}</td></tr>`).join("")
+    : '<tr><td class="dica">Nada ainda.</td></tr>';
+}
+
+/* ==========================================================================
+   INÍCIO — o que falta preencher
+
+   A tela existe para responder "o site está pronto para divulgar?". Ela olha
+   os campos que o site mostra com texto de espera e cobra os que faltam: sem
+   isso, o dono só descobre que o WhatsApp está vazio quando um cliente reclama
+   que o botão não abre conversa nenhuma.
+   ========================================================================== */
+function carregarInicio() {
+  const valor = (chave) => {
+    for (const g of GRUPOS) {
+      const c = g.campos.find((x) => x.chave === chave);
+      if (c) return String(c.valor || "");
+    }
+    return "";
+  };
+  const vazio = (v) => !v.trim() || /preencha/i.test(v) || /^0+[.,/-]/.test(v);
+
+  const cobrar = [
+    ["marca.whatsapp", "WhatsApp", "sem ele, TODOS os botões do site levam a um número de exemplo"],
+    ["loja.endereco", "Endereço", "o rodapé mostra “Preencha o endereço no painel”"],
+    ["loja.horario", "Horário", "o rodapé mostra “Preencha o horário no painel”"],
+    ["marca.telefone", "Telefone", "o rodapé fica sem telefone"],
+    ["marca.cnpj", "CNPJ", "o rodapé mostra 00.000.000/0001-00"],
+  ].filter(([chave]) => vazio(valor(chave)));
+
+  $("#in-numeros").innerHTML = [
+    [DADOS.servicos.filter((s) => s.ativo).length, "consertos no site"],
+    [DADOS.modelos.filter((m) => m.ativo).length, "modelos no orçamento"],
+    [DADOS.posts.filter((p) => p.publicado).length, "matérias publicadas"],
+  ].map(([v, r]) => `<div class="numero"><b>${nf.format(v)}</b><span>${r}</span></div>`).join("");
+
+  $("#in-pendencias").innerHTML = cobrar.length
+    ? `<h3 style="font-size:1rem;color:var(--vermelho-luz)">Falta preencher (${cobrar.length})</h3>
+       <p class="dica" style="margin:.3rem 0 .8rem">O site está no ar com estes campos em branco.</p>
+       <table class="tab">${cobrar.map(([, nome, efeito]) =>
+         `<tr><td><b>${esc(nome)}</b><br><span class="dica">${esc(efeito)}</span></td><td></td></tr>`).join("")}</table>`
+    : `<h3 style="font-size:1rem;color:var(--verde)">Tudo preenchido</h3>
+       <p class="dica">Nenhum campo essencial está em branco.</p>`;
+}
+
+/* ==========================================================================
+   ABERTURA
+   ========================================================================== */
+async function iniciar() {
+  let eu;
+  try { eu = await api("eu"); } catch { return mostrarEntrada(); }
+  $("#entrar").hidden = true;
+  $("#app").hidden = false;
+  $("#versao").textContent = "v" + (eu.versao || "—");
+  await carregarTextos();
+  for (const t of ["marcas", "servicos", "modelos", "posts", "avaliacoes", "faq"]) await carregarTabela(t);
+  carregarInicio();
+  await verEstado();
+}
+
+iniciar();
+</script>
+</body>
+</html>

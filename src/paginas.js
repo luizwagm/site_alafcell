@@ -16,9 +16,35 @@
    Colocar a loja antes do conserto seria vender para quem veio arrumar — o
    erro clássico de assistência que quer virar varejo.
    ========================================================================== */
-const { Q, txt, reais } = require("./db");
+const { Q, txt } = require("./db");
+const Pub = require("./publicado");
 const L = require("./layout");
+/* Dado estruturado nao interpreta marcacao: o que for para dentro do JSON-LD
+   sai como TEXTO, e um "<b>" gravado num campo do painel apareceria assim no
+   resultado da busca. */
+const { semHtml } = require("./html-seguro");
 const { esc, engrenagem, zap } = L;
+
+/* ==========================================================================
+   QUANDO O TEXTO É INTERPRETADO E QUANDO É ESCAPADO
+
+   Desde a 0.8.0 o painel edita com editor de texto formatado, e os campos de
+   CONTEÚDO chegam aqui como HTML — negrito, lista, link. Eles são impressos
+   como vêm; escapá-los faria a página mostrar `<p>` e `<strong>` na cara do
+   visitante, que foi exatamente o defeito que o Instituto Kenósis levou para
+   produção.
+
+   `esc()` continua valendo, e é obrigatório, em três lugares:
+
+     · DENTRO DE ATRIBUTO — `alt=`, `href=`, `title=`, `content=`. Ali uma aspa
+       fecha o atributo e o resto do texto vira marcação da página.
+     · NO JSON-LD — marcação quebra o dado estruturado do Google.
+     · EM TEXTO QUE NÃO PASSA PELO EDITOR — nome de marca, modelo, slug.
+
+   O que garante que o HTML impresso é seguro NÃO é este arquivo: é o
+   `sanitizarHtml` na gravação (`src/admin.js`). Filtrar na exibição deixaria o
+   conteúdo perigoso guardado no banco, esperando outra rota que o leia.
+   ========================================================================== */
 const { SITE } = require("./endereco");
 
 /* ==========================================================================
@@ -60,30 +86,33 @@ function prazoTexto(horas) {
    "a partir de" — e quando não existe preço nenhum, a resposta NÃO é R$ 0,00:
    é dizer que o orçamento sai na hora. Preço zero na tela de uma assistência
    é a promessa que o balcão vai ter de desmentir. */
+/* Continua existindo e continua testado, mas NÃO alimenta tela nenhuma desde
+   a 0.4.0 — o site não mostra preço de conserto. Lê do instantâneo, como todo
+   o resto, para não haver um caminho que enxergue o rascunho. */
 function apartirDe(servicoId) {
-  const r = Q.um(
-    `SELECT MIN(preco) m FROM precos WHERE servico_id = ? AND ativo = 1 AND preco > 0`,
-    servicoId);
-  return r && r.m ? r.m : 0;
+  return Pub.precoMinimo(servicoId);
 }
 
 /* ==========================================================================
    HOME
    ========================================================================== */
 function home(req) {
-  const servicos = Q.todos(
-    "SELECT * FROM servicos WHERE ativo = 1 ORDER BY destaque DESC, ordem LIMIT 6");
-  const marcas = Q.todos("SELECT * FROM marcas WHERE ativo = 1 ORDER BY ordem");
-  const populares = Q.todos(
-    `SELECT m.slug, m.nome, ma.nome marca FROM modelos m
-     JOIN marcas ma ON ma.id = m.marca_id
-     WHERE m.ativo = 1 AND m.popular = 1 ORDER BY ma.ordem, m.ordem LIMIT 6`);
-  const destaques = Q.todos(
-    `SELECT * FROM produtos WHERE ativo = 1 AND destaque = 1 ORDER BY criado DESC LIMIT 4`);
-  const posts = Q.todos(
-    "SELECT slug, titulo, resumo, capa, data FROM posts WHERE publicado = 1 ORDER BY data DESC LIMIT 3");
+  /* TUDO SAI DO INSTANTÂNEO. Ler as tabelas aqui faria a home mostrar o
+     rascunho — e o botão de publicar deixaria de significar alguma coisa. */
+  const servicos = Pub.servicos(6);
+  const marcas = Pub.marcas();
+  const populares = Pub.populares(6);
+  const posts = Pub.posts(3);
 
   /* ------------------------------------------------------------------ topo */
+  /* OS DOIS BOTÕES DO HERO levam para dentro da própria página (#orcamento e
+     #busca-e-leva), porque não há mais para onde sair. O padrão do primeiro
+     deixou de falar em preço: não existe preço de conserto no site, e um botão
+     que promete tabela e entrega lista de serviços gasta a confiança logo na
+     primeira tela.
+
+     ATENÇÃO: este texto é só o PADRÃO. O valor real mora em `config.home.btn1`,
+     e quem manda é o banco — trocar aqui não muda um site que já subiu. */
   const hero = `
 <section class="hero">
   <!-- As engrenagens giram DEVAGAR e ficam atrás de tudo. Elas dizem que a
@@ -96,19 +125,19 @@ function home(req) {
 
   <div class="env hero__in">
     <div class="hero__texto">
-      <p class="rotulo">${engrenagem("", 12)}${esc(txt("home.rotulo", ""))}</p>
+      <p class="rotulo">${engrenagem("", 12)}${txt("home.rotulo", "")}</p>
       <h1 class="hero__titulo">${txt("home.titulo", "Seu celular de volta<br><em>no mesmo dia</em>")}</h1>
-      <p class="hero__sub">${esc(txt("home.texto", ""))}</p>
+      <p class="hero__sub">${txt("home.texto", "")}</p>
       <div class="hero__acoes">
-        <a class="btn btn--acao btn--lg" href="/consertos/">${esc(txt("home.btn1", "Ver preços dos consertos"))}</a>
-        <a class="btn btn--linha btn--lg" href="/busca-e-leva/">${esc(txt("home.btn2", "Buscar meu aparelho"))}</a>
+        <a class="btn btn--acao btn--lg" href="#orcamento">${txt("home.btn1", "Pedir orçamento")}</a>
+        <a class="btn btn--linha btn--lg" href="#busca-e-leva">${txt("home.btn2", "Buscar meu aparelho")}</a>
       </div>
 
       <dl class="numeros">
         ${[1, 2, 3].map((i) => `
         <div class="numero">
-          <dd class="numero__v dado">${esc(txt(`home.n${i}_valor`, ""))}</dd>
-          <dt class="numero__r">${esc(txt(`home.n${i}_rotulo`, ""))}</dt>
+          <dd class="numero__v dado">${txt(`home.n${i}_valor`, "")}</dd>
+          <dt class="numero__r">${txt(`home.n${i}_rotulo`, "")}</dt>
         </div>`).join("")}
       </dl>
     </div>
@@ -139,23 +168,37 @@ function home(req) {
   </div>
 </section>`;
 
-  /* ------------------------------------------------- busca por aparelho
-     Formulário de verdade, com GET: funciona sem JavaScript, a resposta tem
-     endereço próprio e o cliente pode mandar o link para alguém. Um seletor
-     que só funciona com script deixaria de fora justamente o celular velho
-     e a rede ruim — que é metade do público de uma assistência técnica. */
+  /* ------------------------------------------------- pedir orçamento
+     ====================================================================
+     O FORMULÁRIO NÃO MOSTRA PREÇO: ELE ABRE A CONVERSA
+
+     Antes ele levava a uma tela de preços por modelo. Agora monta a primeira
+     mensagem do WhatsApp já com marca, modelo e serviço — que é como o
+     orçamento de assistência realmente começa: alguém olhando o aparelho.
+
+     CONTINUA SENDO UM FORM GET DE VERDADE, apontando para uma rota do
+     servidor que redireciona. Poderia ser JavaScript montando o link, e aí
+     ficaria de fora justamente quem esta assistência atende: o celular velho
+     com a rede ruim. O servidor monta a mensagem e responde um 302 — funciona
+     em qualquer navegador, com ou sem script.
+
+     Os três campos são opcionais de propósito. Quem não souber dizer o modelo
+     ainda assim chega ao WhatsApp; o que faltar, o atendente pergunta. Barrar
+     o envio por causa de um campo em branco seria perder o contato para
+     proteger a completude de um texto.
+     ==================================================================== */
   const busca = `
 <section class="secao busca" id="orcamento">
   <div class="env">
     <div class="busca__caixa cartao" data-revela>
       <div class="busca__cabeca">
-        <p class="rotulo">${engrenagem("", 12)}Orçamento em dois cliques</p>
+        <p class="rotulo">${engrenagem("", 12)}Orçamento pelo WhatsApp</p>
         <h2 class="titulo">Qual é o <em>seu aparelho</em>?</h2>
-        <p class="sub">Escolha a marca e o modelo para ver o preço e o prazo de cada conserto.
-          Sem cadastro, sem esperar alguém responder.</p>
+        <p class="sub">Diga o aparelho e o que houve. A gente abre a conversa no WhatsApp
+          já com essas informações — você só aperta enviar.</p>
       </div>
 
-      <form class="busca__form" action="/consertos/" method="get">
+      <form class="busca__form" action="/orcamento" method="get">
         <label class="campo">
           <span class="campo__rot">Marca</span>
           <select name="marca" class="campo__ent" data-busca-marca>
@@ -169,14 +212,22 @@ function home(req) {
             <option value="">Todos os modelos</option>
           </select>
         </label>
-        <button class="btn btn--acao" type="submit">Ver preços</button>
+        <label class="campo">
+          <span class="campo__rot">O que houve</span>
+          <select name="servico" class="campo__ent">
+            <option value="">Escolha…</option>
+            ${servicos.map((sv) => `<option value="${esc(sv.slug)}">${esc(sv.nome)}</option>`).join("")}
+            <option value="outro">Outro problema</option>
+          </select>
+        </label>
+        <button class="btn btn--acao" type="submit">Pedir orçamento no WhatsApp</button>
       </form>
 
       ${populares.length ? `
       <div class="busca__rapidos">
         <span class="busca__rot">Mais consertados:</span>
         ${populares.map((m) =>
-          `<a class="etiqueta" href="/consertos/?modelo=${esc(m.slug)}">${esc(m.nome)}</a>`).join("")}
+          `<a class="etiqueta" href="/orcamento?modelo=${esc(m.slug)}">${esc(m.nome)}</a>`).join("")}
       </div>` : ""}
 
       <p class="busca__nota">Não achou o seu? A lista tem os mais comuns —
@@ -187,36 +238,47 @@ function home(req) {
 </section>`;
 
   /* -------------------------------------------------------------- serviços */
-  const cartaoServico = (s, i) => {
-    const p = apartirDe(s.id);
-    return `
-    <a class="cartao cartao--acende serv${s.foto ? " serv--foto" : ""}" href="/consertos/${esc(s.slug)}/" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
-      ${s.foto ? `<span class="serv__capa"><img src="${esc(s.foto)}" alt="" loading="lazy"
-        decoding="async" width="1200" height="800"></span>` : ""}
+  /* ====================================================================
+     INFORMAÇÃO, E NÃO VITRINE
+
+     Esta seção mostrava preço de partida, foto e um link por serviço para uma
+     tela própria. Os três saíram: conserto de celular não tem preço de
+     tabela — depende do modelo e do que se encontra ao abrir —, e anunciar um
+     "a partir de" cria a conversa que a assistência menos quer ter, a de
+     explicar por que o valor final é outro.
+
+     Sem link, o cartão deixa de ser `<a>` e vira `<article>`. Isso importa
+     mais do que parece: um `<a>` sem destino útil é uma promessa de página
+     que o visitante clica, espera e não recebe.
+
+     O que ficou é o que a pessoa precisa para reconhecer o próprio problema
+     na lista: o nome, o que é, e o prazo de bancada.
+     ==================================================================== */
+  const cartaoServico = (s, i) => `
+    <article class="cartao serv" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
       <span class="serv__ico">${icone(s.icone)}</span>
       <h3 class="cartao__titulo">${esc(s.nome)}</h3>
-      <p class="cartao__texto">${esc(s.chamada)}</p>
+      <p class="cartao__texto">${s.chamada}</p>
       <span class="serv__pe">
-        ${p ? `<span class="preco"><span class="preco__apartir">A partir de</span>${esc(reais(p))}</span>`
-            : `<span class="preco"><span class="preco__apartir">Orçamento</span>Na hora</span>`}
         <span class="serv__prazo dado">${esc(prazoTexto(s.prazo_horas))}</span>
       </span>
-    </a>`;
-  };
+    </article>`;
 
   const secServicos = `
 <section class="secao secao--tinta" id="consertos">
   <div class="env">
     <header class="secao__cabeca">
       <p class="rotulo">${engrenagem("", 12)}O que a gente conserta</p>
-      <h2 class="titulo">Preço e prazo <em>antes</em> de você sair de casa</h2>
-      <p class="sub">Cada conserto com o valor de partida, o tempo real de bancada e
-        ${esc(txt("legal.garantia", "90 dias"))} de garantia por escrito — na peça e no serviço.</p>
+      <h2 class="titulo">O prazo de bancada, <em>antes</em> de você sair de casa</h2>
+      <p class="sub">Cada conserto com o tempo real de bancada e
+        ${txt("legal.garantia", "90 dias")} de garantia por escrito — na peça e no serviço.
+        O valor sai depois de olhar o aparelho: em celular, orçamento por tabela é chute.</p>
     </header>
     <div class="grade grade--3">
       ${servicos.map(cartaoServico).join("")}
     </div>
-    <p class="secao__mais"><a class="btn btn--linha" href="/consertos/">Ver todos os consertos e os preços</a></p>
+    <p class="secao__mais"><a class="btn btn--acao" href="${zap("Olá! Vim pelo site e queria um orçamento.")}"
+       target="_blank" rel="noopener">Pedir orçamento no WhatsApp</a></p>
   </div>
 </section>`;
 
@@ -226,8 +288,8 @@ function home(req) {
   <div class="env coleta__in">
     <div class="coleta__texto" data-revela>
       <p class="rotulo">${engrenagem("", 12)}O que ninguém mais faz em Caruaru</p>
-      <h2 class="titulo">${esc(txt("coleta.titulo", "A gente vai até você"))}</h2>
-      <p class="sub">${esc(txt("coleta.texto", ""))}</p>
+      <h2 class="titulo">${txt("coleta.titulo", "A gente vai até você")}</h2>
+      <p class="sub">${txt("coleta.texto", "")}</p>
 
       <!-- A comparação é o argumento inteiro desta seção: as redes nacionais
            também dizem "busca e leva", mas a delas é transportadora. Deixar a
@@ -243,8 +305,14 @@ function home(req) {
           <span>A gente busca na sua casa ou no seu trabalho, no horário que você marcar, aqui em ${esc(txt("loja.cidade", "Caruaru"))}.</span>
         </li>
       </ul>
-      <p class="coleta__aviso">${esc(txt("coleta.aviso", ""))}</p>
-      <a class="btn btn--acao btn--lg" href="/busca-e-leva/">Agendar a coleta</a>
+      <p class="coleta__aviso">${txt("coleta.aviso", "")}</p>
+      <!-- Agendar É a conversa. O formulário de coleta gravava um pedido que
+           alguém precisava ir buscar no painel; a mensagem pronta chega no
+           aparelho de quem atende, e o combinado de endereço e horário
+           acontece ali mesmo — que é como isso funciona de verdade. -->
+      <a class="btn btn--acao btn--lg" href="${zap("Olá! Quero agendar a busca do meu aparelho em "
+        + txt("loja.cidade", "Caruaru") + ". Meu endereço é:")}"
+         target="_blank" rel="noopener">Agendar a coleta no WhatsApp</a>
     </div>
 
     <div class="coleta__mapa" aria-hidden="true">
@@ -264,93 +332,200 @@ function home(req) {
      Aqui a animação ganha razão de existir: a barra que enche e a engrenagem
      que gira na etapa ativa são o MESMO desenho da página de acompanhamento.
      Quem vê isso na home reconhece a tela depois, quando estiver ansioso. */
-  const ETAPAS = [
-    ["Você chama", "WhatsApp, formulário ou o balcão. Diz o aparelho e o que houve."],
-    ["A gente busca", "Coleta gratuita em Caruaru, no horário que você marcar."],
-    ["Diagnóstico e preço", "Testamos, mandamos o orçamento fechado e só abrimos depois do seu ok."],
-    ["Conserto e devolução", "Consertado, testado e de volta na sua mão — com a garantia por escrito."],
-  ];
+  /* OS QUATRO PASSOS VÊM DO BANCO. Eram literais aqui, e a promessa que a
+     loja faz ao cliente não pode depender de mim para mudar — quem responde
+     por ela no balcão é o dono.
+
+     A segunda etapa tem DUAS PORTAS, e dizer isso foi pedido do cliente:
+     "a gente busca" sozinho escondia metade do movimento da loja, e quem mora
+     do lado achava que precisava esperar a coleta para ser atendido. */
+  const ETAPAS = [1, 2, 3, 4].map((n) => [
+    txt(`etapas.${n}_titulo`, ""),
+    txt(`etapas.${n}_texto`, ""),
+  ]).filter(([t]) => t);
   const secEtapas = `
 <section class="secao secao--tinta" id="como-funciona">
   <div class="env">
     <header class="secao__cabeca secao__cabeca--centro">
       <p class="rotulo">${engrenagem("", 12)}Como funciona</p>
-      <h2 class="titulo">Quatro passos, <em>nenhuma surpresa</em></h2>
+      <h2 class="titulo">${txt("etapas.titulo", "Quatro passos, <em>nenhuma surpresa</em>")}</h2>
     </header>
     <ol class="etapas">
       ${ETAPAS.map(([t, d], i) => `
       <li class="etapa" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
         <span class="etapa__n dado">${i + 1}</span>
-        <h3 class="etapa__t">${esc(t)}</h3>
-        <p class="etapa__d">${esc(d)}</p>
+        <h3 class="etapa__t">${t}</h3>
+        <p class="etapa__d">${d}</p>
       </li>`).join("")}
     </ol>
   </div>
 </section>`;
 
-  /* ------------------------------------------------------------------ loja */
-  const cartaoProduto = (p, i) => `
-    <a class="cartao cartao--acende prod" href="/produto/${esc(p.slug)}/" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
-      ${p.condicao !== "novo" ? `<span class="selo selo--semi">Seminovo${p.bateria ? ` · bateria ${p.bateria}%` : ""}</span>` : ""}
-      <h3 class="cartao__titulo">${esc(p.nome)}</h3>
-      <p class="cartao__texto">${esc(p.chamada)}</p>
-      <span class="prod__pe">
-        ${p.preco_de > p.preco ? `<span class="preco__de">${esc(reais(p.preco_de))}</span>` : ""}
-        <span class="preco">${esc(reais(p.preco))}</span>
-      </span>
-    </a>`;
-
-  const secLoja = destaques.length ? `
-<section class="secao" id="loja">
-  <div class="env">
-    <header class="secao__cabeca">
-      <p class="rotulo">${engrenagem("", 12)}Loja</p>
-      <h2 class="titulo">Aparelhos, acessórios e <em>periféricos</em></h2>
-      <p class="sub">Novos e seminovos com garantia da loja. Você compra pelo site e retira
-        aqui, ou a gente entrega em Caruaru.</p>
-    </header>
-    <div class="grade grade--4">${destaques.map(cartaoProduto).join("")}</div>
-    <p class="secao__mais"><a class="btn btn--linha" href="/loja/">Ver a loja completa</a></p>
-  </div>
-</section>` : "";
+  /* ------------------------------------------------------------------ loja
+     A SEÇÃO DA LOJA SAIU (0.4.0). Não há loja virtual por enquanto — nem
+     vitrine, nem carrinho, nem checkout. O módulo `src/loja.js` continua no
+     repositório, desligado e sem rota nenhuma, para o dia em que a loja
+     voltar; o CHANGELOG diz o que precisa ser religado.
+     ------------------------------------------------------------------ */
 
   /* --------------------------------------------------------------- garantia */
+  /* O PRAZO DA GARANTIA VIVE NUM LUGAR SÓ (`legal.garantia`) e é colado no
+     começo do primeiro motivo. Escrevê-lo de novo aqui criaria dois números
+     para a mesma promessa, e no dia em que a loja mudasse de 90 para 180 dias
+     um dos dois ficaria mentindo. */
+  const confiar = [1, 2, 3].map((n) => [
+    txt(`confianca.${n}_titulo`, ""),
+    (n === 1 ? txt("legal.garantia", "90 dias") + " " : "") + txt(`confianca.${n}_texto`, ""),
+  ]).filter(([t]) => t);
+
+  const fotoConfianca = txt("confianca.foto", "");
+
   const secGarantia = `
 <section class="secao secao--tinta" id="garantia">
   <div class="env">
     <div class="garantia">
+      ${fotoConfianca ? `
       <figure class="garantia__foto" data-revela>
-        <img src="/assets/img/banco/bancada.webp" width="1200" height="800" loading="lazy"
-             decoding="async" alt="Técnico da Alafcell trabalhando em um aparelho aberto na bancada">
-      </figure>
+        <img src="${esc(fotoConfianca)}" width="1200" height="800" loading="lazy"
+             decoding="async" alt="${esc(txt("confianca.foto_alt", ""))}">
+      </figure>` : ""}
       <div>
-        <p class="rotulo">${engrenagem("", 12)}Por que confiar</p>
-        <h2 class="titulo">Do jeito que a gente <em>gostaria</em> de ser atendido</h2>
-        <p class="sub">Sem promessa que o balcão desmente depois.</p>
+        <p class="rotulo">${engrenagem("", 12)}${txt("confianca.rotulo", "Por que confiar")}</p>
+        <h2 class="titulo">${txt("confianca.titulo", "Do jeito que a gente <em>gostaria</em> de ser atendido")}</h2>
+        <p class="sub">${txt("confianca.sub", "")}</p>
       </div>
     </div>
     <div class="grade grade--3" style="margin-top:2.2rem">
-      ${[
-        ["Garantia por escrito", `${txt("legal.garantia", "90 dias")} na peça e no serviço, no comprovante — não no "confia".`],
-        ["Você aprova antes", "O aparelho só é aberto depois do orçamento fechado. Sem custo se você desistir."],
-        ["Peça com procedência", "Você escolhe entre original e paralela de primeira linha sabendo a diferença de preço e de garantia."],
-      ].map(([t, d], i) => `
+      ${confiar.map(([t, d], i) => `
       <div class="cartao" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
         <span class="serv__ico">${engrenagem("", 26)}</span>
-        <h3 class="cartao__titulo">${esc(t)}</h3>
-        <p class="cartao__texto">${esc(d)}</p>
+        <h3 class="cartao__titulo">${t}</h3>
+        <p class="cartao__texto">${d}</p>
       </div>`).join("")}
     </div>
   </div>
 </section>`;
+
+  /* ================================================================
+     O QUE DIZEM NO GOOGLE
+
+     SÓ AS DE CINCO ESTRELAS, e no máximo TRÊS — as duas regras são do
+     cliente, e as duas vivem na CONSULTA. Deixá-las na tela (ou na
+     disciplina de quem cadastra) faria uma avaliação de quatro estrelas
+     aparecer no dia em que alguém a cadastrasse sem pensar.
+
+     A seção inteira SOME quando não há avaliação: uma seção vazia com
+     título "quem já passou por aqui recomenda" é pior do que seção
+     nenhuma. E nada aqui é texto de exemplo — só entra o que o dono
+     copiou da ficha real da loja.
+     ================================================================ */
+  /* As duas regras (só 5 estrelas, no máximo 3) valem no instantâneo: o que
+     não é 5 nem chega a ser publicado, e aqui o corte é em 3. */
+  const avaliacoes = Pub.avaliacoes(3);
+
+  /* O selo vem do instantâneo, e não de `txt()`: quando a busca no Google está
+     ligada, a nota e o total são os DELE — e mostrar um número digitado ao lado
+     de cartões vindos do Google seria contradizer a própria fonte. */
+  const seloG = Pub.selo();
+  const notaGoogle = seloG.nota;
+  const totalGoogle = seloG.total;
+  const linkGoogle = seloG.link;
+
+  /* DE ONDE VEIO CADA CARTÃO — e por que a página precisa saber.
+
+     Enquanto a busca na Places API não está configurada, estes cartões são o
+     que foi digitado no painel. Chamá-los de "Avaliação no Google" é o site
+     afirmando ao visitante que aquele elogio está publicado numa ficha pública
+     e verificável — e quem for conferir não vai achar. Uma seção de prova
+     social que não resiste a uma conferência derruba junto o resto da página.
+
+     Com o Google ligado, o crédito é verdadeiro e fica. Sem ele, o cartão diz
+     apenas que é de um cliente — que é o que de fato se sabe. */
+  const daFonteGoogle = seloG.doGoogle;
+  const creditoFonte = daFonteGoogle ? "Avaliação no Google" : "Cliente da Alafcell";
+
+  /* ================================================================
+     PERGUNTAS FREQUENTES
+
+     Esta seção é a superfície de busca do site. Como landing de página única,
+     ele tem UMA página para o buscador ranquear, competindo com franquias que
+     têm uma por serviço. Cada pergunta aqui responde uma busca de cauda longa
+     ("quanto tempo demora para trocar a tela", "vocês buscam em casa") sem
+     custar página nova — que é justamente o que o cliente removeu na 0.4.0.
+
+     `<details>` NATIVO, e não acordeão de JavaScript: abre sem script, o
+     teclado navega sozinho, o leitor de tela anuncia o estado, e — o que
+     decide aqui — o texto das respostas está no HTML mesmo fechado, então o
+     buscador lê tudo. Acordeão que só monta o conteúdo ao clicar esconde do
+     buscador exatamente o texto que se quer indexar.
+
+     A seção some inteira quando não há pergunta: um "perguntas frequentes"
+     vazio é pior que nenhum.
+     ================================================================ */
+  const perguntas = Pub.faq();
+  const secFaq = perguntas.length ? `
+<section class="secao" id="perguntas">
+  <div class="env env--fino">
+    <header class="secao__cabeca secao__cabeca--centro">
+      <p class="rotulo" style="justify-content:center">${engrenagem("", 12)}${txt("faq.rotulo", "Perguntas frequentes")}</p>
+      <h2 class="titulo">${txt("faq.titulo", "O que a gente mais <em>escuta</em>")}</h2>
+    </header>
+    <div class="faq">
+      ${perguntas.map((f, i) => `
+      <details class="faq__i"${i === 0 ? " open" : ""}>
+        <summary class="faq__p">${esc(f.pergunta)}</summary>
+        <div class="faq__r">${f.resposta}</div>
+      </details>`).join("")}
+    </div>
+    <p class="faq__fim">Não achou a sua? <a href="${zap(txt("faq.zap",
+      "Olá! Tenho uma dúvida sobre o conserto do meu celular."))}" target="_blank" rel="noopener">Pergunte no WhatsApp</a>.</p>
+  </div>
+</section>` : "";
+
+  const secGoogle = avaliacoes.length ? `
+<section class="secao" id="google">
+  <div class="env">
+    <header class="secao__cabeca secao__cabeca--centro">
+      <p class="rotulo">${engrenagem("", 12)}${txt("google.rotulo", "O que dizem")}</p>
+      <h2 class="titulo">${txt("google.titulo", "Quem já passou por aqui <em>recomenda</em>")}</h2>
+      ${notaGoogle ? `
+      <${linkGoogle ? `a class="selo-google" href="${esc(linkGoogle)}" target="_blank" rel="noopener"`
+                    : "span class=\"selo-google\""}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path fill="#4285F4" d="M22.5 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-2 3.2-4.9 3.2-7.9Z"/>
+          <path fill="#34A853" d="M12 23c2.9 0 5.4-1 7.2-2.6l-3.6-2.7c-1 .7-2.2 1-3.6 1-2.8 0-5.1-1.9-6-4.4H2.3v2.8A11 11 0 0 0 12 23Z"/>
+          <path fill="#FBBC05" d="M6 14.3a6.6 6.6 0 0 1 0-4.2V7.3H2.3a11 11 0 0 0 0 9.8L6 14.3Z"/>
+          <path fill="#EA4335" d="M12 5.4c1.6 0 3 .5 4.1 1.6l3.1-3.1A11 11 0 0 0 2.3 7.3L6 10.1c.9-2.6 3.2-4.7 6-4.7Z"/>
+        </svg>
+        <span class="selo-google__estrelas" aria-hidden="true">★★★★★</span>
+        <span class="selo-google__nota"><b>${esc(notaGoogle)}</b>${
+          totalGoogle ? ` · ${esc(totalGoogle)} avaliações no Google` : " no Google"}</span>
+      </${linkGoogle ? "a" : "span"}>` : ""}
+    </header>
+    <div class="grade grade--3">
+      ${avaliacoes.map((a, i) => `
+      <figure class="cartao avaliacao" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
+        <div class="avaliacao__estrelas" aria-label="5 de 5 estrelas">★★★★★</div>
+        <blockquote class="avaliacao__texto">“${a.texto}”</blockquote>
+        <figcaption class="avaliacao__quem">
+          <span class="avaliacao__inicial" aria-hidden="true">${esc((a.autor || "G").trim().charAt(0).toUpperCase())}</span>
+          <span>
+            <span class="avaliacao__nome">${esc(a.autor || "Cliente")}</span><br>
+            <span class="avaliacao__fonte">${creditoFonte}${a.quando ? ` · ${esc(a.quando)}` : ""}</span>
+          </span>
+        </figcaption>
+      </figure>`).join("")}
+    </div>
+  </div>
+</section>` : "";
 
   /* ------------------------------------------------------------------ blog */
   const secBlog = posts.length ? `
 <section class="secao" id="blog">
   <div class="env">
     <header class="secao__cabeca">
-      <p class="rotulo">${engrenagem("", 12)}Blog</p>
-      <h2 class="titulo">Antes de gastar, <em>leia</em></h2>
+      <p class="rotulo">${engrenagem("", 12)}${txt("blog.rotulo", "Blog")}</p>
+      <h2 class="titulo">${txt("blog.titulo", "Antes de gastar, <em>leia</em>")}</h2>
     </header>
     <div class="grade grade--3">
       ${posts.map((p, i) => `
@@ -358,23 +533,37 @@ function home(req) {
         ${p.capa ? `<span class="post__capa"><img src="${esc(p.capa)}" alt="" loading="lazy"
           decoding="async" width="1200" height="800"></span>` : ""}
         <h3 class="cartao__titulo">${esc(p.titulo)}</h3>
-        <p class="cartao__texto">${esc(p.resumo)}</p>
+        <p class="cartao__texto">${p.resumo}</p>
       </a>`).join("")}
     </div>
   </div>
 </section>` : "";
 
-  /* ------------------------------------------------------------ chamada final */
+  /* --------------------------------------------------- contato / chamada final
+     ESTA SEÇÃO VIROU O "CONTATO" DA LANDING, e por isso ganhou o id: o menu
+     aponta para "#contato" desde que o site deixou de ter tela de contato, e
+     âncora prometida que não existe rola a página até o fim sem parar em nada.
+
+     O segundo botão era "Acompanhar um conserto", que virou 404. No lugar,
+     o endereço e o horário — a informação que falta a quem decidiu vir até a
+     loja e está com o site aberto no celular. */
+  const endereco = txt("loja.endereco", "");
+  const horario = txt("loja.horario", "");
+  const temEndereco = endereco && !/preencha/i.test(endereco);
+
   const secFim = `
-<section class="secao fim">
+<section class="secao fim" id="contato">
   <div class="env env--fino fim__in" data-revela>
     <h2 class="titulo">Conta o que houve com o seu aparelho</h2>
     <p class="sub">Responder é de graça e costuma levar poucos minutos no horário da loja.</p>
     <div class="hero__acoes">
       <a class="btn btn--acao btn--lg" href="${zap("Olá! Vim pelo site e queria um orçamento.")}"
          target="_blank" rel="noopener">Falar no WhatsApp</a>
-      <a class="btn btn--linha btn--lg" href="/acompanhar/">Acompanhar um conserto</a>
     </div>
+    ${temEndereco ? `
+    <address class="fim__onde">
+      ${esc(endereco)}${horario && !/preencha/i.test(horario) ? `<br><span>${esc(horario)}</span>` : ""}
+    </address>` : ""}
   </div>
 </section>`;
 
@@ -382,12 +571,20 @@ function home(req) {
     req,
     atual: "",
     canonical: "/",
-    titulo: "",
-    descricao: `Assistência técnica de celular em ${txt("loja.cidade", "Caruaru")}: troca de tela, `
-      + `bateria e conector com preço na tela, ${txt("legal.garantia", "90 dias")} de garantia `
-      + `e busca e leva gratuita. Loja de aparelhos novos e seminovos.`,
-    jsonld: jsonldLoja(),
-    corpo: hero + busca + secServicos + secColeta + secEtapas + secLoja + secGarantia + secBlog + secFim,
+    /* Vazio cai no padrão do layout ("<nome> — <slogan>"). Quem quiser um
+       título diferente do que aparece na aba escreve no painel. */
+    titulo: txt("seo.titulo", ""),
+    /* ANTES esta linha era literal no código e prometia "preço na tela" e
+       "loja de aparelhos novos e seminovos" — os dois removidos do site na
+       0.4.0. Ficou meses assim porque ninguém lê o próprio código procurando
+       promessa velha; quem lê é quem busca no Google, clica e volta. */
+    descricao: txt("seo.descricao", ""),
+    jsonld: jsonldLoja(perguntas),
+    /* O FAQ vem depois da garantia e ANTES das recomendações: quem ainda tem
+       dúvida operacional não é convencido por depoimento — primeiro se
+       responde a pergunta, depois se mostra quem já passou por aqui. */
+    corpo: hero + busca + secServicos + secColeta + secEtapas + secGarantia
+      + secFaq + secGoogle + secBlog + secFim,
   });
 }
 
@@ -401,7 +598,7 @@ function home(req) {
    Campo vazio não entra. Um `address` com "preencha no painel" dentro é pior
    que nenhum: o Google lê, mostra e ninguém percebe.
    ========================================================================== */
-function jsonldLoja() {
+function jsonldLoja(perguntas = []) {
   const nome = txt("marca.nome", "Alafcell Assistec");
   const rua = txt("loja.endereco", "");
   const preenchido = rua && !/preencha/i.test(rua);
@@ -436,7 +633,126 @@ function jsonldLoja() {
   const insta = txt("marca.instagram", "");
   if (insta) ficha.sameAs = [insta];
 
-  return { "@context": "https://schema.org", "@graph": [ficha] };
+  /* ------------------------------------------------------------------------
+     ONDE A LOJA ATENDE
+
+     A busca local é decidida por proximidade, e o site inteiro só dizia
+     "Caruaru". Quem procura "conserto de celular em Toritama" não encontrava
+     uma assistência que vai buscar o aparelho lá.
+
+     A lista sai do painel porque é uma promessa operacional: cidade listada é
+     cidade onde a busca e leva vai de verdade. Uma cidade a mais aqui é uma
+     viagem a mais amanhã, e quem decide isso é a loja.
+     ------------------------------------------------------------------------ */
+  const cidades = txt("loja.atende", "").split("\n")
+    .map((c) => c.trim()).filter(Boolean).slice(0, 20);
+  if (cidades.length) {
+    ficha.areaServed = cidades.map((c) => ({
+      "@type": "City", name: c, address: {
+        "@type": "PostalAddress", addressLocality: c,
+        addressRegion: txt("loja.uf", "PE"), addressCountry: "BR" },
+    }));
+  }
+
+  /* ------------------------------------------------------------------------
+     O CATÁLOGO DE SERVIÇOS
+
+     Os oito consertos deixaram de ter página própria na 0.4.0, e com isso
+     sumiram da leitura do buscador: ele via uma landing genérica onde havia
+     oito serviços nomeados. O catálogo devolve essa informação SEM criar
+     página nenhuma — que é exatamente a restrição do site atual.
+
+     Sem preço, de propósito: o cliente tirou preço de conserto do site
+     inteiro, e um `Offer` com valor aqui reporia pela porta dos fundos o que
+     ele mandou tirar da tela.
+     ------------------------------------------------------------------------ */
+  const servicos = Pub.servicos(20);
+  if (servicos.length) {
+    ficha.hasOfferCatalog = {
+      "@type": "OfferCatalog",
+      name: `Consertos — ${nome}`,
+      itemListElement: servicos.map((s) => ({
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: s.nome,
+          /* `semHtml`: a chamada é campo formatado no painel, e marcação dentro
+             de dado estruturado é lida como texto — o cliente veria "<b>" no
+             resultado da busca. */
+          description: semHtml(s.chamada || ""),
+          serviceType: s.nome,
+          provider: { "@id": `${SITE}/#loja` },
+          ...(cidades.length ? { areaServed: cidades.map((c) => ({ "@type": "City", name: c })) } : {}),
+        },
+      })),
+    };
+  }
+
+  /* ------------------------------------------------------------------------
+     A ORGANIZAÇÃO E O SITE
+
+     Duas entidades a mais no mesmo grafo, ligadas por `@id`. A `Organization`
+     com `logo` é o que alimenta o painel de conhecimento (o quadro à direita
+     na busca); o `WebSite` é o que dá nome ao site em vez de o buscador
+     deduzir do domínio.
+
+     NÃO ENTRA AQUI `aggregateRating` nem `review`. Avaliação do próprio
+     negócio na própria página é "self-serving review": o Google não exibe
+     estrela para isso em LocalBusiness desde 2019, então a marcação daria
+     trabalho e nenhuma estrela. E republicar como conteúdo do site as
+     avaliações que vieram da API deles seria apresentar como nosso o que é da
+     ficha do Google. O lugar dessas estrelas é o Google Business Profile.
+     ------------------------------------------------------------------------ */
+  const logo = SITE + "/assets/img/og.png";
+  const organizacao = {
+    "@type": "Organization",
+    "@id": `${SITE}/#organizacao`,
+    name: nome,
+    url: SITE + "/",
+    logo: { "@type": "ImageObject", url: logo },
+    ...(insta ? { sameAs: [insta] } : {}),
+    ...(tel ? { telephone: tel } : {}),
+  };
+  const website = {
+    "@type": "WebSite",
+    "@id": `${SITE}/#site`,
+    url: SITE + "/",
+    name: nome,
+    inLanguage: "pt-BR",
+    publisher: { "@id": `${SITE}/#organizacao` },
+  };
+  ficha.parentOrganization = { "@id": `${SITE}/#organizacao` };
+
+  const grafo = [ficha, organizacao, website];
+
+  /* ------------------------------------------------------------------------
+     FAQPage — o rich result que este site pode ganhar
+
+     Diferente de `aggregateRating`, que o Google não exibe para o próprio
+     negócio na própria página, o bloco de perguntas continua sendo mostrado. É
+     o retorno de SEO mais alto disponível para uma landing de página única.
+
+     Só entra o que ESTÁ NA TELA: marcar pergunta que o visitante não encontra
+     na página é a definição de dado estruturado enganoso, e derruba o site
+     inteiro do recurso. Por isso a lista vem da mesma variável que desenhou a
+     seção, e não de uma consulta própria que poderia divergir dela.
+
+     A resposta vai com a marcação de formatação: o Google aceita HTML simples
+     em `acceptedAnswer` e o texto já passou pela peneira na gravação.
+     ------------------------------------------------------------------------ */
+  if (perguntas.length) {
+    grafo.push({
+      "@type": "FAQPage",
+      "@id": `${SITE}/#perguntas`,
+      mainEntity: perguntas.map((f) => ({
+        "@type": "Question",
+        name: semHtml(f.pergunta || ""),
+        acceptedAnswer: { "@type": "Answer", text: f.resposta || "" },
+      })),
+    });
+  }
+
+  return { "@context": "https://schema.org", "@graph": grafo };
 }
 
 /* ==========================================================================
@@ -458,9 +774,11 @@ function erro404(req) {
     <h1 class="titulo">Esta página <em>não existe</em></h1>
     <p class="sub" style="margin-inline:auto">Ou ela mudou de endereço. Estes caminhos funcionam:</p>
     <div class="hero__acoes" style="justify-content:center">
-      <a class="btn btn--acao" href="/consertos/">Ver os consertos</a>
-      <a class="btn btn--linha" href="/loja/">Ir para a loja</a>
-      <a class="btn btn--linha" href="/">Voltar ao início</a>
+      <!-- Depois da 0.4.0 o site tem dois destinos, e o 404 só pode oferecer
+           esses dois. Oferecer /consertos/ e /loja/ daqui era mandar quem já
+           se perdeu para outro 404. -->
+      <a class="btn btn--acao" href="/">Voltar ao início</a>
+      <a class="btn btn--linha" href="/blog/">Ler o blog</a>
     </div>
   </div>
 </section>`,

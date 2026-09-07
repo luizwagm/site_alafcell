@@ -58,10 +58,16 @@ const INDEXAVEL = forcado === "sim" ? true
    sitemap num site que pede para não ser indexado é dizer as duas coisas ao
    mesmo tempo, e o Google resolve a contradição do jeito dele.
 
-   No endereço real, três caminhos ficam de fora mesmo indexando: painéis,
-   carrinho e a consulta da ordem de serviço. A consulta não é segredo, mas
-   indexar uma página que existe para receber dado de cliente é convidar robô
-   a varrê-la — e ela responde sobre aparelho de gente de verdade.
+   No endereço real ficam de fora os painéis e o `/orcamento`.
+
+   O `/orcamento` não é página: é um desvio para o WhatsApp. Indexá-lo poria a
+   conversa da assistência no resultado de busca e gastaria rastreamento numa
+   URL que nunca devolve conteúdo.
+
+   Carrinho, checkout e acompanhamento saíram desta lista na 0.4.0 junto com as
+   rotas: pedir ao robô que não visite o que responde 404 é instrução morta, e
+   instrução morta num robots.txt é a pista falsa que o próximo a ler vai
+   seguir procurando uma loja que não existe mais.
    ========================================================================== */
 function robots() {
   if (!INDEXAVEL) {
@@ -75,9 +81,7 @@ Disallow: /
 Allow: /
 Disallow: /admin/
 Disallow: /restrito/
-Disallow: /carrinho/
-Disallow: /checkout/
-Disallow: /acompanhar/
+Disallow: /orcamento
 
 Sitemap: ${SITE}/sitemap.xml
 `;

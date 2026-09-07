@@ -45,6 +45,87 @@ function textos() {
   T("marca.cnpj", "00.000.000/0001-00", "marca", "CNPJ", "texto", 7,
     "Aparece no rodapé e no cadastro do Google. Preencha com o CNPJ real.");
 
+  /* ------------------------------------------------------- como funciona
+     Quatro passos, cada um com título e descrição próprios. Estavam fixos no
+     `paginas.js`; agora o dono ajusta a promessa que a loja faz — e é ele quem
+     responde por ela no balcão. */
+  T("etapas.titulo", "Quatro passos, <em>nenhuma surpresa</em>", "etapas",
+    "Título da seção", "texto", 1,
+    "Pode usar <em> para destacar um trecho.");
+  T("etapas.1_titulo", "Você chama", "etapas", "Passo 1 — título", "texto", 2);
+  T("etapas.1_texto", "WhatsApp ou o balcão. Diz o aparelho e o que houve — "
+    + "com foto, se der. A resposta vem no mesmo dia.", "etapas", "Passo 1 — texto", "area", 3);
+  T("etapas.2_titulo", "A gente busca ou você traz", "etapas", "Passo 2 — título", "texto", 4);
+  T("etapas.2_texto", "A coleta é gratuita em Caruaru, no horário que você marcar. "
+    + "Se preferir, deixe o aparelho aqui na loja — atendemos no balcão sem hora marcada.",
+    "etapas", "Passo 2 — texto", "area", 5);
+  T("etapas.3_titulo", "Diagnóstico e orçamento", "etapas", "Passo 3 — título", "texto", 6);
+  T("etapas.3_texto", "Testamos o aparelho e dizemos o que ele tem, o que custa e "
+    + "quanto tempo leva. Só abrimos depois do seu ok — e se você desistir, não paga nada.",
+    "etapas", "Passo 3 — texto", "area", 7);
+  T("etapas.4_titulo", "Conserto e devolução", "etapas", "Passo 4 — título", "texto", 8);
+  T("etapas.4_texto", "Consertado, testado na sua frente e de volta na sua mão, "
+    + "com a garantia por escrito no comprovante.", "etapas", "Passo 4 — texto", "area", 9);
+
+  /* ------------------------------------------------------ por que confiar
+     Os três motivos eram literais no código. O da garantia continua lendo o
+     prazo de `legal.garantia`, para o número não viver em dois lugares e
+     divergir no dia em que a loja mudar a política. */
+  T("confianca.rotulo", "Por que confiar", "confianca", "Rótulo pequeno", "texto", 1);
+  T("confianca.titulo", "Do jeito que a gente <em>gostaria</em> de ser atendido",
+    "confianca", "Título da seção", "texto", 2, "Pode usar <em> para destacar.");
+  T("confianca.sub", "Sem promessa que o balcão desmente depois.", "confianca",
+    "Frase de apoio", "area", 3);
+  T("confianca.foto", "/assets/img/banco/bancada.webp", "confianca", "Foto da seção", "imagem", 4,
+    "Foto larga (proporção 3x2). Aparece ao lado do título.");
+  T("confianca.foto_alt", "Técnico da Alafcell trabalhando em um aparelho aberto na bancada",
+    "confianca", "Descrição da foto", "area", 5,
+    "Lido por quem usa leitor de tela e mostrado se a imagem não carregar.");
+  T("confianca.1_titulo", "Garantia por escrito", "confianca", "Motivo 1 — título", "texto", 6);
+  T("confianca.1_texto", "na peça e no serviço, impressa no comprovante que você leva — "
+    + "não no \"confia\". Deu problema no prazo, a gente resolve sem discussão.",
+    "confianca", "Motivo 1 — texto", "area", 7,
+    "O prazo entra automaticamente no começo da frase, vindo de Garantia → prazo.");
+  T("confianca.2_titulo", "Você aprova antes", "confianca", "Motivo 2 — título", "texto", 8);
+  T("confianca.2_texto", "O aparelho só é aberto depois do orçamento fechado. "
+    + "Se o conserto não compensar, a gente diz — e você não paga a avaliação.",
+    "confianca", "Motivo 2 — texto", "area", 9);
+  T("confianca.3_titulo", "Peça com procedência", "confianca", "Motivo 3 — título", "texto", 10);
+  T("confianca.3_texto", "Você escolhe entre original e paralela de primeira linha "
+    + "sabendo a diferença de preço e de garantia, antes de decidir.",
+    "confianca", "Motivo 3 — texto", "area", 11);
+
+  /* ---------------------------------------------------------------- blog */
+  T("blog.rotulo", "Blog", "blog", "Rótulo pequeno", "texto", 1);
+  T("blog.titulo", "Antes de gastar, <em>leia</em>", "blog", "Título na página inicial",
+    "texto", 2, "Pode usar <em> para destacar.");
+  T("blog.capa_titulo", "Antes de gastar, <em>leia</em>", "blog", "Título da página /blog/",
+    "texto", 3);
+  T("blog.capa_texto", "O que a gente explica no balcão todo dia, escrito para você "
+    + "decidir sozinho — inclusive quando a resposta é não consertar.",
+    "blog", "Texto da página /blog/", "area", 4);
+
+  /* ------------------------------------------------- o que o Google diz
+     A NOTA e o TOTAL são digitados, e não buscados: a API de avaliações do
+     Google é paga e exige cadastro. Digitado tem um custo — envelhece — e por
+     isso o painel avisa para conferir de vez em quando. O link leva à busca
+     real, onde qualquer um confere o número na hora. */
+  T("google.rotulo", "O que dizem", "google", "Rótulo pequeno", "texto", 1);
+  T("google.titulo", "Quem já passou por aqui <em>recomenda</em>", "google",
+    "Título da seção", "texto", 2);
+  T("google.nota", "", "google", "Nota no Google", "texto", 3,
+    "Exemplo: 5,0. Deixe em branco para esconder o selo da nota.");
+  T("google.total", "", "google", "Quantas avaliações", "texto", 4,
+    "Exemplo: 42. Aparece ao lado da nota.");
+  T("google.link", "", "google", "Link para as avaliações", "url", 5,
+    "O endereço da sua ficha no Google. O selo vira link para ele.");
+  T("google.place_id", "", "google", "Place ID da loja", "texto", 6,
+    "O identificador da sua ficha no Google Maps — começa com \"ChIJ\". "
+    + "Com ele e a chave abaixo, as avaliações são buscadas direto do Google.");
+  T("google.chave_api", "", "google", "Chave da API do Google", "texto", 7,
+    "Criada no Google Cloud, com a \"Places API\" ativada. A chave é sua e a "
+    + "cobrança também — o site consulta uma vez por dia, não a cada visita.");
+
   /* --------------------------------------------------------------- a loja */
   T("loja.endereco", "Preencha o endereço no painel", "loja", "Endereço completo", "area", 1,
     "Rua, número, bairro, cidade e CEP. É este texto que vai para o Google Maps e para o Schema.org.");
@@ -59,6 +140,30 @@ function textos() {
   T("loja.mapa", "", "loja", "Link do Google Maps", "url", 8);
   T("loja.latitude", "", "loja", "Latitude", "texto", 9);
   T("loja.longitude", "", "loja", "Longitude", "texto", 10);
+  T("loja.atende", "Caruaru\nToritama\nBezerros\nGravatá\nSanta Cruz do Capibaribe\nBelo Jardim\nSão Caetano\nAgrestina",
+    "loja", "Cidades atendidas", "area", 11,
+    "Uma cidade por linha. Vão para a ficha que o Google lê (\"atende também\") "
+    + "e para o rodapé. Quem procura \"conserto de celular em Toritama\" não "
+    + "encontra uma loja que só diz Caruaru — esta lista é o que abre essas buscas. "
+    + "Só ponha cidade onde a busca e leva vai de verdade.");
+
+  /* ------------------------------------------------------- o que sai no Google
+     As duas linhas que a pessoa lê ANTES de clicar. Estavam escritas no código
+     — e continuavam prometendo preço na tela e loja de aparelhos, removidos do
+     site na 0.4.0. Promessa que a página não cumpre faz quem clica voltar em
+     segundos, e esse retorno derruba a posição. */
+  T("seo.titulo", "", "seo", "Título no Google (home)", "texto", 1,
+    "Até 60 caracteres. Vazio usa \"<nome da empresa> — <frase da marca>\". "
+    + "Comece pelo que a pessoa digita: \"Assistência técnica de celular em Caruaru\".");
+  T("seo.descricao",
+    /* 141 caracteres. O Google corta perto de 155, e o corte cai no meio da
+       frase — a chamada morre justo onde deveria convencer. */
+    "Conserto de celular em Caruaru: tela, bateria e conector. "
+    + "A gente busca no seu endereço, conserta e devolve. Orçamento gratuito pelo WhatsApp.",
+    "seo", "Descrição no Google (home)", "area", 2,
+    "Entre 120 e 155 caracteres — mais que isso o Google corta. Só prometa o que "
+    + "a página entrega: promessa não cumprida faz a pessoa voltar, e voltar "
+    + "derruba a posição na busca.");
 
   /* ---------------------------------------------------------------- topo */
   T("home.rotulo", "Assistência técnica especializada · Caruaru", "home", "Rótulo acima do título", "texto", 1);
@@ -67,7 +172,7 @@ function textos() {
   T("home.texto",
     "Tela, bateria, conector de carga, câmera e placa. Diagnóstico na sua frente, preço fechado antes de abrir o aparelho e garantia por escrito.",
     "home", "Texto de apresentação", "area", 3);
-  T("home.btn1", "Ver preços dos consertos", "home", "Botão principal", "texto", 4);
+  T("home.btn1", "Pedir orçamento", "home", "Botão principal", "texto", 4);
   T("home.btn2", "Buscar meu aparelho", "home", "Botão secundário", "texto", 5);
 
   T("home.n1_valor", "24h", "home", "Número 1 — valor", "texto", 10);
@@ -217,10 +322,111 @@ function aparelhos() {
   }
 }
 
+/* ==========================================================================
+   AVALIACOES DE EXEMPLO
+
+   A secao de avaliacoes some da pagina quando nao ha nenhuma — o que e o certo
+   (melhor nao ter secao do que ter uma vazia), mas faz o trabalho parecer nao
+   feito para quem acabou de abrir o painel. Estas tres existem para a secao
+   nascer visivel e para o dono ver o formato antes de escrever os dele.
+
+   O texto DIZ que e exemplo. Elogio inventado que passa por real e propaganda
+   enganosa; e se estiver marcado, apagar vira a coisa obvia a fazer em vez de
+   uma descoberta constrangedora depois de o site ja estar no ar.
+
+   Quando o Place ID e a chave da API forem preenchidos, estas somem sozinhas:
+   com a busca ligada, o site so mostra o que veio do Google.
+   ========================================================================== */
+function avaliacoesExemplo() {
+  /* SO NUMA INSTALACAO NOVA. `semear()` roda a cada subida do servidor — as
+     outras funcoes daqui se protegem do mesmo jeito. Sem esta linha, cada
+     reinicio empilha mais tres avaliacoes iguais no site do cliente, e as que
+     ele apagar voltam sozinhas na proxima subida. */
+  if (Q.um("SELECT COUNT(*) c FROM avaliacoes").c) return;
+
+  const ins = Q.db.prepare(
+    `INSERT INTO avaliacoes (autor, texto, estrelas, quando, ordem, ativo, criado)
+     VALUES (?,?,5,?,?,1,?)`);
+  const agora = new Date().toISOString();
+  const base = [
+    ["Exemplo 1", "(AVALIACAO DE EXEMPLO — troque ou apague no painel) Deixei o "
+      + "celular de manha com a tela quebrada e peguei no fim da tarde novo em folha.",
+      "ha 2 semanas"],
+    ["Exemplo 2", "(AVALIACAO DE EXEMPLO — troque ou apague no painel) Passaram o "
+      + "orcamento antes de mexer, e o valor foi o combinado. Sem surpresa.",
+      "ha 1 mes"],
+    ["Exemplo 3", "(AVALIACAO DE EXEMPLO — troque ou apague no painel) Buscaram o "
+      + "aparelho aqui em casa e devolveram consertado no dia seguinte.",
+      "ha 2 meses"],
+  ];
+  base.forEach(([autor, texto, quando], i) => ins.run(autor, texto, quando, i, agora));
+}
+
+/* ==========================================================================
+   AS PERGUNTAS FREQUENTES
+
+   Estas oito sao as que uma assistencia responde no balcao o dia inteiro — e,
+   nao por acaso, as que as pessoas digitam na busca. Ao contrario das
+   avaliacoes de exemplo, estas NAO sao texto de espera: sao respostas de
+   verdade, escritas para serem publicadas como estao e ajustadas onde a
+   operacao for diferente.
+
+   Sem preco em nenhuma resposta: o cliente tirou preco de conserto do site
+   inteiro, e repor aqui seria devolver pela porta dos fundos o que ele mandou
+   tirar da tela.
+   ========================================================================== */
+function faq() {
+  if (Q.um("SELECT COUNT(*) c FROM faq").c) return;
+
+  const ins = Q.db.prepare(
+    "INSERT INTO faq (pergunta, resposta, ordem, ativo, criado) VALUES (?,?,?,1,?)");
+  const agora = new Date().toISOString();
+  const lista = [
+    ["Quanto tempo demora para consertar o celular?",
+     "<p>A maioria dos consertos fica pronta <b>no mesmo dia</b> — troca de tela, "
+     + "bateria e conector de carga saem em algumas horas quando a peça está aqui. "
+     + "Reparo de placa e aparelho que caiu na água levam mais tempo, porque "
+     + "dependem do diagnóstico. Você recebe o prazo junto com o orçamento, antes "
+     + "de a gente abrir o aparelho.</p>"],
+    ["Vocês buscam o aparelho em casa?",
+     "<p>Sim. A gente busca no seu endereço, conserta e devolve — você não precisa "
+     + "sair. Se preferir, também pode trazer na loja e esperar. É só combinar pelo "
+     + "WhatsApp o endereço e o horário.</p>"],
+    ["O orçamento é cobrado?",
+     "<p>Não. A avaliação do aparelho é gratuita e <b>você não paga nada se decidir "
+     + "não consertar</b>. A gente passa o valor antes de mexer; se não compensar o "
+     + "conserto, a gente fala isso também.</p>"],
+    ["Qual é a garantia do conserto?",
+     "<p>Todo serviço sai com garantia por escrito. O prazo vale para a peça trocada "
+     + "e para a mão de obra — se o mesmo defeito voltar dentro do período, a gente "
+     + "resolve sem cobrar de novo.</p>"],
+    ["A peça é original?",
+     "<p>Trabalhamos com peça original e com paralelo de primeira linha, e "
+     + "<b>você escolhe sabendo a diferença</b> de preço e de garantia antes do "
+     + "conserto. A gente não troca uma pela outra sem avisar.</p>"],
+    ["Vou perder minhas fotos e conversas?",
+     "<p>Nos consertos comuns — tela, bateria, conector, câmera — <b>nada é apagado</b>: "
+     + "a gente não mexe na memória do aparelho. Em reparo de placa e em aparelho "
+     + "molhado existe risco, e a gente avisa antes. Fazer um backup pelo Google ou "
+     + "iCloud antes de deixar o aparelho é sempre a recomendação.</p>"],
+    ["Vocês consertam celular que caiu na água?",
+     "<p>Sim, e o tempo conta muito. <b>Não ligue e não coloque para carregar</b> — é "
+     + "o que costuma queimar o que ainda estava bom. Traga o mais rápido possível "
+     + "para a limpeza da placa; quanto antes chegar, maior a chance de recuperar.</p>"],
+    ["Precisa agendar?",
+     "<p>Não. Você pode chamar no WhatsApp a qualquer hora ou aparecer na loja no "
+     + "horário de funcionamento. Para a busca e leva, aí sim a gente combina uma "
+     + "janela de horário para o aparelho não ficar esperando.</p>"],
+  ];
+  lista.forEach(([p, r], i) => ins.run(p, r, i, agora));
+}
+
 function semear() {
   textos();
   servicos();
   aparelhos();
+  avaliacoesExemplo();
+  faq();
 }
 
 module.exports = { semear };

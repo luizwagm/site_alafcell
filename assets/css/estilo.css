@@ -1317,3 +1317,122 @@ textarea.campo__ent { min-height: 7rem; padding-block: .7rem; resize: vertical; 
 }
 .prod:hover img.prod__img { filter: none; scale: 1.04; }
 .citem img.prod__img { object-fit: cover; }
+
+
+/* ==========================================================================
+   O QUE DIZEM NO GOOGLE
+
+   As estrelas são AMARELAS, e não vermelhas. É a única coisa no site que foge
+   da paleta de propósito: estrela de avaliação é um símbolo que a pessoa já
+   sabe ler, e pintá-la de vermelho da marca faria parecer alerta. O vermelho
+   aqui continua sendo o da marca, na borda que acende no hover.
+
+   O selo do Google mantém as cores originais do logotipo deles pelo mesmo
+   motivo: recolorido, ele deixa de ser reconhecido — e o valor da seção
+   inteira está em quem a lê reconhecer a fonte num relance.
+   ========================================================================== */
+.selo-google {
+  display: inline-flex; align-items: center; gap: .55rem;
+  margin-top: 1rem; padding: .5rem .95rem;
+  background: var(--grafite-2); border: 1px solid var(--linha);
+  border-radius: 999px; text-decoration: none; color: inherit;
+}
+a.selo-google:hover { border-color: var(--vermelho); }
+.selo-google__estrelas { color: #FFC107; letter-spacing: .06em; }
+.selo-google__nota { font-size: .88rem; color: var(--tinta-2); }
+.selo-google__nota b { color: var(--branco); font-size: 1rem; }
+
+.avaliacao { display: flex; flex-direction: column; gap: .7rem; }
+.avaliacao__estrelas { color: #FFC107; letter-spacing: .08em; font-size: 1.05rem; }
+/* `blockquote` tem margem do navegador; sem zerar, o cartão fica torto só nele. */
+.avaliacao__texto {
+  margin: 0; font-size: .98rem; line-height: 1.6;
+  color: var(--tinta-2);
+}
+.avaliacao__quem {
+  display: flex; align-items: center; gap: .6rem;
+  margin-top: auto; padding-top: .6rem;      /* `auto` cola o autor no pé mesmo
+                                                com textos de tamanhos diferentes */
+  border-top: 1px solid var(--linha);
+}
+.avaliacao__inicial {
+  display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px;
+  border-radius: 50%; background: var(--vermelho-fundo);
+  color: var(--vermelho-alto); font-weight: 800;
+}
+.avaliacao__nome { font-weight: 700; font-size: .9rem; }
+.avaliacao__fonte { font-size: .76rem; color: var(--tinta-3); }
+
+
+/* ==========================================================================
+   PERGUNTAS FREQUENTES
+
+   `<details>` nativo: abre sem JavaScript, o teclado navega sozinho e o leitor
+   de tela anuncia aberto/fechado. O marcador padrão do navegador some e o
+   sinal de mais é desenhado, para ele girar — o triângulo do sistema não
+   aceita transição.
+   ========================================================================== */
+.faq { display: flex; flex-direction: column; gap: .7rem; }
+
+.faq__i {
+  background: var(--metal-face);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  overflow: hidden;               /* sem isto o canto do cartão vaza no aberto */
+  transition: border-color .2s;
+}
+.faq__i[open] { border-color: var(--linha-viva); }
+
+/* O marcador do navegador é substituído nos dois motores: `::-webkit-details-marker`
+   para os antigos, `list-style` para os atuais. Deixar um dos dois de fora faz
+   aparecer DOIS sinais na mesma linha em parte dos aparelhos. */
+.faq__p::-webkit-details-marker { display: none; }
+.faq__p {
+  list-style: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1.05rem 1.2rem;
+  font-family: var(--fonte-titulo);
+  font-weight: 700; font-size: 1.02rem; line-height: 1.4;
+  cursor: pointer;
+}
+.faq__p:hover { color: var(--vermelho-luz); }
+/* Foco visível: a seção é navegável por teclado e sem isto ninguém sabe onde
+   está. `outline-offset` negativo mantém o anel dentro do cartão arredondado. */
+.faq__p:focus-visible { outline: 2px solid var(--vermelho-luz); outline-offset: -3px; }
+
+/* O sinal de mais, desenhado com duas barras: a vertical some no aberto, o que
+   transforma o "+" em "−" sem trocar caractere nenhum. */
+.faq__p::after {
+  content: ""; flex: 0 0 14px; width: 14px; height: 14px;
+  background:
+    linear-gradient(var(--vermelho-luz), var(--vermelho-luz)) center/14px 2px no-repeat,
+    linear-gradient(var(--vermelho-luz), var(--vermelho-luz)) center/2px 14px no-repeat;
+  transition: transform .2s, background-size .2s;
+}
+.faq__i[open] .faq__p::after {
+  background-size: 14px 2px, 2px 0;   /* a barra vertical encolhe a zero */
+  transform: rotate(180deg);
+}
+
+.faq__r {
+  padding: 0 1.2rem 1.15rem;
+  color: var(--tinta-2); font-size: .97rem; line-height: 1.65;
+}
+/* A resposta vem do editor do painel, então pode ter parágrafo, lista e
+   negrito. Sem zerar a margem do primeiro parágrafo, sobra um degrau entre a
+   pergunta e o texto. */
+.faq__r > :first-child { margin-top: 0; }
+.faq__r > :last-child { margin-bottom: 0; }
+.faq__r ul, .faq__r ol { padding-left: 1.2rem; }
+.faq__r a { color: var(--vermelho-luz); }
+
+.faq__fim {
+  margin-top: 1.4rem; text-align: center;
+  font-size: .92rem; color: var(--tinta-3);
+}
+.faq__fim a { color: var(--vermelho-luz); font-weight: 700; }
+
+@media (max-width: 560px) {
+  .faq__p { padding: .95rem 1rem; font-size: .96rem; }
+  .faq__r { padding: 0 1rem 1rem; }
+}

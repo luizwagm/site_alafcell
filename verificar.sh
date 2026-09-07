@@ -47,22 +47,58 @@ INICIAL=$(codigo "/saude")
 if [ "$INICIAL" = "000" ]; then
   echo
   vermelho "o site não respondeu em $ALVO — nada foi conferido."
+
+  # ------------------------------------------------------------------------
+  # DE QUEM É A CULPA: DA APLICAÇÃO OU DO NGINX?
+  #
+  # São duas falhas que se parecem de fora e têm conserto oposto. Perguntar
+  # direto à aplicação, por dentro, separa as duas em uma linha — em vez de
+  # deixar quem lê escolher entre quatro comandos sem saber por qual começar.
+  # ------------------------------------------------------------------------
+  PORTA_LOCAL="${ALAFCELL_PORTA:-5202}"
+  # Sem `|| echo 000`: o próprio `-w "%{http_code}"` já imprime 000 quando a
+  # conexão falha, e o `||` acrescentava um segundo — a mensagem saía "(000000)".
+  DENTRO=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3            "http://127.0.0.1:${PORTA_LOCAL}/saude" 2>/dev/null)
+
   echo
-  echo "  Onde olhar, nesta ordem:"
-  echo "    sudo systemctl status alafcell --no-pager"
-  echo "    sudo journalctl -u alafcell -n 40 --no-pager"
-  echo "    curl -sI http://127.0.0.1:5202/saude      # a aplicação em si"
-  echo "    sudo nginx -T | grep -A3 'server_name.*alafcell'   # o vhost"
+  if [ "$DENTRO" = "200" ]; then
+    verde "a APLICAÇÃO está no ar em 127.0.0.1:${PORTA_LOCAL}"
+    amarelo "o que falta é o NGINX: não há vhost nem certificado para este endereço."
+    echo
+    echo "  É exatamente o que o criar-site.sh faz — rode uma vez:"
+    echo "    sudo ./criar-site.sh ${ALVO#https://} ${PORTA_LOCAL}"
+    echo
+    echo "  (sob *.projetos.luizaugust.me o navegador recusa http:// por HSTS,"
+    echo "   então até o certificado sair a página não abre. É esperado.)"
+  else
+    vermelho "a APLICAÇÃO também não responde em 127.0.0.1:${PORTA_LOCAL} (${DENTRO})"
+    echo
+    echo "  Comece por ela, e só depois olhe o nginx:"
+    echo "    sudo systemctl status alafcell --no-pager"
+    echo "    sudo journalctl -u alafcell -n 40 --no-pager"
+  fi
   echo
   exit 1
 fi
 
 # ------------------------------------------------------------ as páginas
 azul "Páginas"
-for R in / /consertos/ /consertos/troca-de-tela/ /busca-e-leva/ /loja/ /loja/seminovos/ \
-         /carrinho/ /blog/ /contato/ /privacidade/ /acompanhar/ /saude /robots.txt /sitemap.xml; do
+# A LISTA ACOMPANHOU A 0.4.0. Ela cobrava /consertos/, /loja/, /carrinho/,
+# /contato/ e /acompanhar/ — removidos de propósito quando o site virou landing
+# — e acusava 8 problemas onde não havia nenhum. Verificador que grita sempre é
+# verificador que ninguém lê, e o problema de verdade passa no meio dos falsos.
+for R in / /blog/ /privacidade/ /saude /robots.txt /sitemap.xml; do
   C=$(codigo "$R")
   if [ "$C" = "200" ]; then verde "$R"; else falha "$R respondeu $C"; fi
+done
+
+# As rotas removidas não saem da conferência: viram a lista do que TEM de
+# responder 404. Uma delas voltando a responder 200 é loja reaberta sem querer
+# — com carrinho, checkout e preço de conserto na tela.
+for R in /consertos/ /loja/ /carrinho/ /checkout/ /contato/ /acompanhar/; do
+  C=$(codigo "$R")
+  if [ "$C" = "404" ]; then verde "$R continua fora (404)"
+  else falha "$R respondeu $C — esta rota foi REMOVIDA na 0.4.0 e não deveria existir"; fi
 done
 
 # Uma página que NÃO deve existir precisa responder 404, e não 200. Um
@@ -118,9 +154,63 @@ if echo "$ROBOTS" | grep -q '^Disallow: /$'; then
                                        || verde "e sem linha de Sitemap, como deve ser"
 else
   verde "robots.txt: indexável"
-  URLS=$(pega "/sitemap.xml" | grep -c '<loc>')
+  echo "$ROBOTS" | grep -q 'Sitemap:' && verde "com a linha do Sitemap" \
+    || falha "sem linha 'Sitemap:' — é por ela que o buscador acha o mapa do site"
+
+  MAPA=$(pega "/sitemap.xml")
+  URLS=$(echo "$MAPA" | grep -c '<loc>')
   [ "$URLS" -gt 0 ] && verde "sitemap com $URLS endereços" || falha "sitemap vazio num site indexável"
+  # Sem `lastmod` o buscador revisita tudo na mesma cadência e matéria nova
+  # demora a aparecer.
+  echo "$MAPA" | grep -q '<lastmod>' && verde "com data de última alteração" \
+    || amarelo "sitemap sem <lastmod> — o buscador não sabe o que revisitar"
+
+  # O cabeçalho de noindex NÃO pode existir num site que quer ser encontrado.
+  # Ele apaga o site inteiro da busca e é invisível para quem só olha a tela.
+  if curl -s -I --max-time 10 "$ALVO/" | tr -d '\r' | grep -qi '^X-Robots-Tag:.*noindex'; then
+    falha "X-Robots-Tag: noindex num site indexável — o Google vai TIRAR o site da busca"
+  else
+    verde "sem X-Robots-Tag de noindex"
+  fi
 fi
+
+# ------------------------------------------------ o www e o HSTS (domínio próprio)
+# Isto é configuração de NGINX: não aparece em nenhuma das duas suítes, que
+# rodam contra o Node. Só dá para conferir de fora.
+HOST=$(echo "$ALVO" | sed 's|^https\?://||; s|/.*||')
+case "$HOST" in
+  *.projetos.luizaugust.me|localhost*|127.0.0.1*)
+    : ;;  # subdomínio de trabalho: não tem www e herda o HSTS do domínio pai
+  *)
+    azul "Domínio próprio"
+
+    # Servir o site igual em www e sem www dá ao buscador duas cópias do mesmo
+    # site, dividindo a força de cada link recebido entre os dois endereços.
+    CODIGO_WWW=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://www.$HOST/" 2>/dev/null || echo "000")
+    case "$CODIGO_WWW" in
+      301) verde "www redireciona (301) para o endereço sem www" ;;
+      302|307) falha "www redireciona com $CODIGO_WWW — tem de ser 301, senão os dois ficam no índice" ;;
+      200) falha "www responde 200: o site está no ar em DOIS endereços, competindo consigo mesmo" ;;
+      000) amarelo "www.$HOST não respondeu — confira o DNS e o certificado" ;;
+      *)   amarelo "www.$HOST respondeu $CODIGO_WWW" ;;
+    esac
+
+    # Sem HSTS a PRIMEIRA visita de cada pessoa sai em HTTP antes do
+    # redirecionamento — e é nessa visita que dá para interceptar.
+    curl -s -I --max-time 10 "$ALVO/" | tr -d '\r' | grep -qi '^Strict-Transport-Security:' \
+      && verde "HSTS presente" \
+      || falha "sem Strict-Transport-Security — a primeira visita de cada pessoa sai em HTTP"
+
+    # ARMADILHA DO NGINX: `add_header` dentro de um `location` APAGA os do
+    # `server`. O bloco de /assets/ tem o seu (Cache-Control), então o HSTS
+    # precisa estar repetido lá. A home aprovar não prova nada sobre os
+    # estáticos — é o furo clássico, e some sem aviso.
+    curl -s -I --max-time 10 "$ALVO/assets/css/estilo.css" | tr -d '\r' \
+      | grep -qi '^Strict-Transport-Security:' \
+      && verde "HSTS também nos estáticos" \
+      || falha "estáticos SEM HSTS: add_header no location /assets/ apagou o do server"
+    ;;
+esac
 
 # ------------------------------------------------------------- segurança
 azul "Segurança"

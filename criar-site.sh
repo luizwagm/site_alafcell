@@ -37,7 +37,22 @@ amarelo() { printf "\033[1;33m%s\033[0m\n" "$1"; }
 vermelho(){ printf "\033[1;31m%s\033[0m\n" "$1"; }
 azul()    { printf "\033[1;34m%s\033[0m\n" "$1"; }
 
-[ "$(id -u)" -eq 0 ] || { vermelho "Rode com sudo."; exit 1; }
+# --------------------------------------------------------------------------
+# MODO DE ENSAIO — usado pelos testes, nunca na instalacao
+#
+#   ALAFCELL_VHOST_ENSAIO=/caminho/saida.conf ./criar-site.sh alafcell.com.br
+#
+# Gera o vhost naquele caminho e sai, sem tocar em nginx, certbot, DNS ou
+# systemd. Existe porque o vhost e montado por heredoc, e heredoc quebra em
+# silencio: um `$` mal escapado nao derruba o script — ele faz o bloco nao ser
+# escrito, e o defeito so aparece no servidor.
+#
+# Fica ANTES da exigencia de root de proposito: o ensaio nao precisa de root,
+# e um teste que exige sudo e um teste que ninguem roda.
+# --------------------------------------------------------------------------
+ENSAIO="${ALAFCELL_VHOST_ENSAIO:-}"
+
+[ -n "$ENSAIO" ] || [ "$(id -u)" -eq 0 ] || { vermelho "Rode com sudo."; exit 1; }
 
 # É subdomínio? Conta os pontos: 3 ou mais e não é domínio raiz. Serve para
 # decidir sobre o www e sobre o aviso de indexação.
@@ -54,23 +69,42 @@ echo
 
 # ------------------------------------------------------------- 1. o DNS
 echo "1/6  Conferindo o DNS"
+if [ -n "$ENSAIO" ]; then
+  # O ensaio nao sai na internet: o DNS ja e pulado logo abaixo, e o que se
+  # testa aqui e o GERADOR DE VHOST. Os dois `curl` para o ifconfig.me custam
+  # ate 16s por execucao — e num runner sem saida para a rede ficariam
+  # pendurados, fazendo o teste falhar por motivo nenhum.
+  MEUS_IPS="0.0.0.0"
+else
 MEUS_IPS=$(
   { ip -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1
     curl -4 -s --max-time 8 https://ifconfig.me 2>/dev/null
     curl -6 -s --max-time 8 https://ifconfig.me 2>/dev/null
   } | sort -u | grep -v '^$'
 )
+fi
 [ -n "${IP_SERVIDOR:-}" ] && MEUS_IPS="$MEUS_IPS
 $IP_SERVIDOR"
 
-resolve() { dig +short "$2" "$1" 2>/dev/null | grep -E '^[0-9a-fA-F.:]+$' | tail -1; }
+# No ensaio a consulta NAO ACONTECE. Nao basta ignorar o resultado: sem
+# servidor DNS alcancavel, cada `dig` espera o timeout — eram quatro chamadas,
+# 40s para exercitar um gerador de texto. Num runner sem rede, pior ainda.
+resolve() {
+  [ -n "$ENSAIO" ] && return 0
+  dig +short "$2" "$1" 2>/dev/null | grep -E '^[0-9a-fA-F.:]+$' | tail -1
+}
 daqui()   { [ -n "$1" ] && echo "$MEUS_IPS" | grep -qxF "$1"; }
 
 A=$(resolve "$DOMINIO" A); AAAA=$(resolve "$DOMINIO" AAAA)
 echo "     este servidor : $(echo "$MEUS_IPS" | tr '\n' ' ')"
 echo "     $DOMINIO : ${A:-—} ${AAAA:-}"
 
-if daqui "$A" || daqui "$AAAA"; then
+if [ -n "$ENSAIO" ]; then
+  # No ensaio não há DNS para consultar, e não é ele que está sendo testado.
+  # Assume-se que tudo resolve — inclusive o www —, porque o objetivo é
+  # exercitar o CAMINHO MAIS COMPLETO do gerador.
+  amarelo "     [ensaio] pulando a conferência de DNS"
+elif daqui "$A" || daqui "$AAAA"; then
   verde "     o domínio resolve para este servidor"
 else
   vermelho "     o DNS não aponta para cá."
@@ -84,7 +118,7 @@ fi
 DOMINIOS="-d $DOMINIO"
 if [ "$SUBDOMINIO" -eq 0 ]; then
   A_WWW=$(resolve "www.$DOMINIO" A); AAAA_WWW=$(resolve "www.$DOMINIO" AAAA)
-  if daqui "$A_WWW" || daqui "$AAAA_WWW"; then
+  if [ -n "$ENSAIO" ] || daqui "$A_WWW" || daqui "$AAAA_WWW"; then
     DOMINIOS="$DOMINIOS -d www.$DOMINIO"
     verde "     www também resolve para cá — entra no mesmo certificado"
   else
@@ -96,6 +130,10 @@ fi
 
 # ------------------------------------------------------ 2. a aplicação
 echo "2/6  Testando a aplicação em 127.0.0.1:$PORTA"
+if [ -n "$ENSAIO" ]; then
+  amarelo "     [ensaio] pulando o teste da aplicação"
+  CODIGO=200
+else
 CODIGO=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://127.0.0.1:$PORTA/saude" || echo 000)
 if [ "$CODIGO" != "200" ]; then
   vermelho "     /saude respondeu $CODIGO — a aplicação não está no ar."
@@ -103,6 +141,7 @@ if [ "$CODIGO" != "200" ]; then
   exit 1
 fi
 verde "     no ar — $(curl -s --max-time 5 "http://127.0.0.1:$PORTA/saude")"
+fi
 
 # ---------------------------------------------- 3. o endereço na aplicação
 # O canonical, o JSON-LD, o sitemap e o robots saem do ALAFCELL_SITE. Sem esta
@@ -132,11 +171,63 @@ fi
 
 # ------------------------------------------------------------ 4. o vhost
 echo "4/6  Criando o vhost"
+# --------------------------------------------------------------------------
+# HSTS — so no dominio proprio
+#
+# Sob `*.projetos.luizaugust.me` o dominio pai ja anuncia com includeSubDomains
+# e repetir aqui nao muda nada. Num dominio proprio ninguem anuncia por voce, e
+# sem o cabecalho a PRIMEIRA visita de cada pessoa sai em HTTP antes do 301 —
+# que e exatamente a visita em que da para interceptar.
+#
+# SEM `preload` de proposito: entrar na lista de precarga dos navegadores e
+# praticamente irreversivel, e vale para o dominio inteiro. Isso e decisao do
+# dono do dominio, nao de um script de instalacao.
+#
+# ARMADILHA DO NGINX: `add_header` dentro de um `location` APAGA os add_header
+# do server. Por isso o cabecalho e repetido no bloco de /assets/, que tem
+# add_header proprio — sem a repeticao, CSS, JS e as fotos sairiam sem HSTS.
+# --------------------------------------------------------------------------
+HSTS_SERVER=""
+HSTS_ASSETS=""
+if [ "$SUBDOMINIO" -eq 0 ]; then
+  HSTS_SERVER='    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;'
+  HSTS_ASSETS='        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;'
+fi
+
 ARQ="/etc/nginx/sites-available/$DOMINIO"
+[ -n "$ENSAIO" ] && ARQ="$ENSAIO"
 [ -f "$ARQ" ] && { cp "$ARQ" "$ARQ.bak-$(date +%F-%H%M%S)"; amarelo "     já existia — guardei uma cópia .bak"; }
 
+# O www NAO entra no mesmo server_name. Servir o site igual em
+# `alafcell.com.br` e `www.alafcell.com.br` da ao buscador duas copias do mesmo
+# site: a forca de cada link recebido se divide entre os dois enderecos, e ele
+# escolhe sozinho qual mostrar. O www ganha um bloco proprio, so para mandar
+# quem chegar la para o endereco de verdade.
 SERVIDORES="$DOMINIO"
-[ "$SUBDOMINIO" -eq 0 ] && SERVIDORES="$DOMINIO www.$DOMINIO"
+
+# O bloco do www so e escrito se o www RESOLVER para ca — o mesmo cuidado do
+# certificado. Um server_name para um nome que nao existe e configuracao morta.
+BLOCO_WWW=""
+if [ "$SUBDOMINIO" -eq 0 ] && echo "$DOMINIOS" | grep -q " -d www.$DOMINIO"; then
+  BLOCO_WWW=$(cat <<WWW
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.$DOMINIO;
+
+    # O certbot valida o www por HTTP e precisa alcancar isto ANTES do
+    # redirecionamento — senao o certificado do www nunca sai.
+    location ^~ /.well-known/acme-challenge/ { root /var/www/html; }
+
+    # 301 e nao 302: o permanente e o que transfere a forca do endereco antigo
+    # para o novo. O temporario mantem os dois no indice para sempre.
+    location / { return 301 https://$DOMINIO\$request_uri; }
+}
+
+WWW
+)
+  verde "     www.$DOMINIO vai redirecionar para $DOMINIO (301)"
+fi
 
 cat > "$ARQ" <<NGINX
 # Gerado por criar-site.sh — Alafcell Assistec
@@ -145,6 +236,7 @@ cat > "$ARQ" <<NGINX
 
 limit_req_zone \$binary_remote_addr zone=alafcell_forms:10m rate=20r/m;
 
+$BLOCO_WWW
 server {
     listen 80;
     listen [::]:80;
@@ -159,6 +251,8 @@ server {
     # Nenhum formulário do site passa de alguns KB. Teto baixo elimina uma
     # classe inteira de abuso antes de o pedido chegar ao Node.
     client_max_body_size 1m;
+
+$HSTS_SERVER
 
     # ------------------------------------------------------------------
     # COMPRESSÃO. O HTML é gerado a cada pedido e sai com 40 a 90 KB; com
@@ -183,6 +277,7 @@ server {
         alias $RAIZ/assets/;
         expires 7d;
         add_header Cache-Control "public, must-revalidate" always;
+$HSTS_ASSETS
         access_log off;
         try_files \$uri =404;
     }
@@ -201,6 +296,13 @@ server {
     }
 }
 NGINX
+
+# O ENSAIO TERMINA AQUI. Daqui para baixo o script mexe em nginx, systemd e
+# certbot — nada disso pertence a um teste, e tudo isso exige root.
+if [ -n "$ENSAIO" ]; then
+  verde "[ensaio] vhost escrito em $ARQ"
+  exit 0
+fi
 
 # Os cabeçalhos do proxy num arquivo só. O X-Forwarded-For usa
 # \$proxy_add_x_forwarded_for, que ACRESCENTA o IP real ao FIM da lista — por
