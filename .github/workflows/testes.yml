@@ -123,6 +123,18 @@ jobs:
           fi
           echo "o deploy é chamado como o dono do código"
 
+      # `npm ci --silent` cala o npm INCLUSIVE no erro: a entrega falhava
+      # mostrando "exit code 243" e mais nada, sem dizer se foi permissão,
+      # rede, lock fora de sincronia ou memória. Numa entrega, erro mudo é o
+      # pior arranjo possível — quem lê o log fica adivinhando.
+      - name: O deploy não silencia os erros
+        run: |
+          if grep -n -- "--silent" deploy.sh | grep -v "^[0-9]*:#"; then
+            echo "::error::deploy.sh usa --silent num comando: no erro, o log fica sem a mensagem"
+            exit 1
+          fi
+          echo "o deploy deixa os erros aparecerem"
+
       # ------------------------------------------------------------------
       #  As suítes
       # ------------------------------------------------------------------

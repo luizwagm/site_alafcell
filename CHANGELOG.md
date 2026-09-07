@@ -4,6 +4,47 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.11.4 — 07/09/2026 — O passo das dependências falhava MUDO
+
+```
+3/7  dependências
+Error: Process completed with exit code 243.
+```
+
+Uma linha, um número, e nada mais. O comando era `npm ci --omit=dev --silent`,
+e **`--silent` cala o npm inclusive no erro**. Numa entrega isso é o pior
+arranjo possível: não dá para saber se foi permissão, rede, lock fora de
+sincronia ou memória — quem lê o log fica adivinhando.
+
+Agora o npm fala. A saída vai para arquivo e, quando ele falha, as últimas 25
+linhas aparecem no erro, junto com onde olhar primeiro.
+
+### E há um suspeito com nome e sobrenome neste projeto
+
+`npm ci` **apaga** `node_modules/` antes de reinstalar. Se a pasta pertence ao
+root — o que acontece quando alguém roda `sudo npm ci` uma vez, e foi o que
+aconteceu aqui na primeira subida ao servidor — o deploy feito como `deploy`
+não consegue removê-la.
+
+O passo 3/7 passou a **conferir o dono antes**, e a mensagem já traz o conserto:
+
+```bash
+sudo chown -R deploy:deploy /var/www/projetos/Alafcell-Assistec
+```
+
+Conferir custa uma linha e transforma um `exit 243` numa instrução.
+
+O lock foi verificado com um `npm ci --omit=dev` limpo, em pasta vazia: 67
+pacotes, sem erro. Ele não é a causa.
+
+### Travado contra regressão
+
+A bateria de testes recusa `--silent` no `deploy.sh`. Erro mudo numa entrega é
+um defeito de operação como qualquer outro — e este custou uma rodada inteira
+de adivinhação. Provado sabotando o arquivo.
+
+---
+
 ## 0.11.3 — 07/09/2026 — A trava do sudo disparava com a porta trancada
 
 O passo que eu tinha acabado de acrescentar para *proteger* o deploy passou a

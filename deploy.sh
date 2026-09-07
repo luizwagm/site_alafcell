@@ -107,8 +107,44 @@ fi
 
 # ------------------------------------------------------------ 3. dependências
 azul "3/7  dependências"
-npm ci --omit=dev --silent
-echo "     ok"
+
+# --------------------------------------------------------------------------
+# O DONO DE node_modules/ É CONFERIDO ANTES
+#
+# `npm ci` APAGA a pasta antes de reinstalar. Se ela pertence ao root — o que
+# acontece quando alguém roda `sudo npm ci` uma vez — o deploy feito como
+# `deploy` não consegue remover, e falha com um erro de permissão que aparece
+# entregas depois, longe da causa. Já aconteceu aqui, na primeira subida.
+#
+# Conferir custa uma linha e transforma "exit 243" numa instrução.
+# --------------------------------------------------------------------------
+if [ -d "$RAIZ/node_modules" ]; then
+  DONO_MODULOS=$(stat -c '%U' "$RAIZ/node_modules" 2>/dev/null || echo "?")
+  EU=$(id -un)
+  if [ "$DONO_MODULOS" != "$EU" ] && [ "$DONO_MODULOS" != "?" ]; then
+    erro "     node_modules/ pertence a '$DONO_MODULOS', e este deploy roda como '$EU'."
+    erro "     O 'npm ci' apaga essa pasta antes de reinstalar, e não vai conseguir."
+    erro ""
+    erro "     Conserto (uma vez só):"
+    erro "       sudo chown -R $EU:$EU \"$RAIZ\""
+    exit 1
+  fi
+fi
+
+# SEM `--silent`: ele cala o npm inclusive no erro, e a entrega falhava
+# mostrando só "exit 243" — sem dizer se foi permissão, rede, lock fora de
+# sincronia ou memória. O log vai para arquivo e aparece quando dá errado.
+if ! npm ci --omit=dev --no-audit --no-fund > /tmp/alafcell-npm.log 2>&1; then
+  erro "     O 'npm ci' falhou. As últimas linhas:"
+  tail -25 /tmp/alafcell-npm.log | sed 's/^/       /' >&2
+  erro ""
+  erro "     Onde olhar primeiro:"
+  erro "       · permissão  — o dono de node_modules/ e de .npm (veja acima)"
+  erro "       · lock       — 'npm ci' recusa package.json e package-lock.json fora de sincronia"
+  erro "       · node       — $(node --version) aqui; a unidade usa a mesma linha?"
+  exit 1
+fi
+echo "     ok — $(node -e 'const l=require("./package-lock.json");console.log(Object.keys(l.packages||{}).length + " pacotes")')"
 
 # -------------------------------------------------------------------- 4. fotos
 # As fotos de banco NÃO vão no repositório (2,8 MB de binário que nunca muda).
