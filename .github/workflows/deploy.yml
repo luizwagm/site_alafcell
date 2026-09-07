@@ -149,22 +149,52 @@ jobs:
             exit 1
           fi
 
-      # O `sudo` do `systemctl restart` tem de passar SEM SENHA, senão o deploy
-      # sobe o código e não reinicia o serviço — a pior metade de uma entrega.
-      # Falhar aqui, dizendo o que falta, é melhor que descobrir isso no meio.
-      - name: Conferir o sudo do serviço
+      # ====================================================================
+      #  O REINÍCIO DO SERVIÇO PRECISA DE sudo SEM SENHA — mas isto é um AVISO
+      #
+      #  Sem a regra, o deploy sobe o código e NÃO reinicia: a pior metade de
+      #  uma entrega, porque parece ter dado certo.
+      #
+      #  Este passo NÃO bloqueia, e a razão é que eu errei duas vezes tentando
+      #  fazê-lo bloquear:
+      #
+      #    · testar `sudo -n systemctl is-active` falha com a regra CERTA — ela
+      #      permite só o `restart`, e mais nada;
+      #    · `sudo -n -l <cmd>` é o teste correto, mas o próprio `sudo -l` pode
+      #      exigir senha dependendo da configuração.
+      #
+      #  Não dá para determinar isso de fora sem efeito colateral: o único
+      #  teste definitivo é reiniciar o serviço, que é o que não se quer fazer
+      #  antes das provas.
+      #
+      #  Quem já é autoridade sobre isso é o `deploy.sh` (falha no 7/7, com
+      #  mensagem) e o passo "a versão no ar é a deste commit", logo abaixo —
+      #  ele pega exatamente o caso de "subiu e não reiniciou".
+      #
+      #  Uma trava que dispara com a porta trancada ensina a ignorar o aviso.
+      # ====================================================================
+      - name: Diagnóstico do sudo do serviço
+        continue-on-error: true
         env:
           HOST: ${{ secrets.SSH_HOST }}
           USUARIO: ${{ secrets.SSH_USER }}
           PORTA: ${{ secrets.SSH_PORT }}
         run: |
-          if ssh -i ~/.ssh/deploy -p "${PORTA:-22}" -o BatchMode=yes "$USUARIO@$HOST" \
-               'sudo -n systemctl is-active alafcell.service >/dev/null 2>&1 || sudo -n true' 2>/dev/null; then
-            echo "o sudo do systemctl passa sem senha"
-          else
-            echo "::error::o usuário $USUARIO não consegue reiniciar o serviço sem senha. No servidor: echo 'deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart alafcell.service, /bin/systemctl restart alafcell.service' | sudo tee /etc/sudoers.d/alafcell && sudo chmod 440 /etc/sudoers.d/alafcell && sudo visudo -c"
-            exit 1
-          fi
+          RESPOSTA=$(ssh -i ~/.ssh/deploy -p "${PORTA:-22}" -o BatchMode=yes "$USUARIO@$HOST" '
+            for BIN in /usr/bin/systemctl /bin/systemctl; do
+              [ -x "$BIN" ] || continue
+              if sudo -n -l "$BIN" restart alafcell.service >/dev/null 2>&1; then
+                echo "PODE $BIN"; exit 0
+              fi
+            done
+            echo "NAO_CONFIRMADO"
+            sudo -n -l 2>&1 | tail -8 || true
+          ' 2>/dev/null || echo "NAO_CONFIRMADO")
+          echo "$RESPOSTA"
+          case "$RESPOSTA" in
+            PODE*) echo "::notice::o reinício do serviço passa sem senha" ;;
+            *) echo "::warning::não consegui confirmar o sudo do reinício. Se o deploy falhar no passo 7/7, rode no servidor: echo 'deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart alafcell.service, /bin/systemctl restart alafcell.service' | sudo tee /etc/sudoers.d/alafcell && sudo chmod 440 /etc/sudoers.d/alafcell && sudo visudo -c" ;;
+          esac
 
       # ====================================================================
       #  SEM `sudo`, DE PROPÓSITO

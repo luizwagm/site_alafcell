@@ -4,6 +4,40 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.11.3 — 07/09/2026 — A trava do sudo disparava com a porta trancada
+
+O passo que eu tinha acabado de acrescentar para *proteger* o deploy passou a
+derrubá-lo:
+
+```
+Error: o usuário deploy não consegue reiniciar o serviço sem senha.
+```
+
+Ele testava `sudo -n systemctl is-active` e `sudo -n true`. **Nenhum dos dois
+está no sudoers**, que — corretamente — permite um comando só: `systemctl
+restart alafcell.service`. A trava falhava exatamente quando a regra estava
+CERTA, e a mensagem mandava configurar o que já estava configurado.
+
+A segunda tentativa foi `sudo -n -l <comando>`, que é o teste correto — ele
+pergunta se o comando seria permitido, sem executá-lo. Mas o próprio `sudo -l`
+pode exigir senha dependendo da configuração: falso negativo de novo.
+
+**Não dá para determinar isso de fora sem efeito colateral.** O único teste
+definitivo é reiniciar o serviço, que é justamente o que não se quer fazer
+antes das provas.
+
+Então a trava saiu e virou **aviso**. Quem já é autoridade sobre isso:
+
+- o `deploy.sh`, que falha no passo 7/7 com mensagem;
+- o passo **"a versão no ar é a deste commit"**, que pega exatamente o caso de
+  "subiu o código e não reiniciou".
+
+Uma trava que dispara com a porta trancada ensina a ignorar o aviso — e aviso
+ignorado não protege ninguém. Dois passos protegendo a mesma coisa, um deles
+com falso positivo, é pior que um só que funciona.
+
+---
+
 ## 0.11.2 — 07/09/2026 — O workflow chamava o deploy com `sudo`
 
 ```
