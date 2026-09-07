@@ -9,10 +9,12 @@
    é cego para uma família inteira de defeito: **a função existe, é exportada,
    está provada… e ninguém a ligou numa rota.**
 
-   Foi exatamente o que aconteceu com o `robots.txt`. A prova
-   `Endereco.robots()` passava desde o primeiro dia; o caminho `/robots.txt`
-   respondia 404 desde o primeiro dia. As duas coisas eram verdade ao mesmo
-   tempo, e nenhum teste podia notar, porque nenhum teste passava pelo servidor.
+   Foi exatamente o que aconteceu com o `robots.txt` e com o `/saude`. As duas
+   rotas existiam no primeiro commit e foram APAGADAS na 0.4.0, junto com as
+   rotas da loja — com as quais não tinham relação. A partir dali, a prova de
+   `Endereco.robots()` continuou passando e o caminho `/robots.txt` respondia
+   404. As duas coisas eram verdade ao mesmo tempo, e nenhum teste podia notar,
+   porque nenhum teste passava pelo servidor.
 
    Aqui o servidor sobe de verdade, numa porta própria, e se responde ao que o
    buscador vai pedir.

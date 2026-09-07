@@ -571,6 +571,10 @@ const servidor = http.createServer(async (req, res) => {
        entrega esgotava as 20 tentativas e reportava que o site nao subiu — com
        o site no ar e funcionando.
 
+       Esta rota tambem foi apagada na 0.4.0, na mesma limpeza que levou o
+       robots. DEPOIS DE REMOVER UM BLOCO DE ROTAS, PEDIR CADA CAMINHO QUE
+       SOBROU — o que some junto nao avisa.
+
        Os tres avisos (demo, chave Pix de demonstracao, conteudo) sao lidos
        daqui pelo deploy: e o unico lugar onde alguem olha a cada entrega, e
        por isso o lugar certo para lembrar do que ainda e provisorio.
@@ -593,10 +597,14 @@ const servidor = http.createServer(async (req, res) => {
     /* ====================================================================
        ROBOTS.TXT
 
-       A funcao que monta o arquivo mora em `src/endereco.js` desde o comeco e
-       e exportada — mas a ROTA nunca foi escrita, e `/robots.txt` respondia
-       404. O caminho estava ate na lista OPERACAO (que so o poupa do
-       redirecionamento canonico), o que fazia tudo parecer resolvido.
+       A funcao que monta o arquivo mora em `src/endereco.js` desde o comeco, e
+       a ROTA tambem existia — ate a 0.4.0 apaga-la junto com as rotas da loja
+       (vitrine, carrinho, checkout, acompanhar), com as quais ela nao tinha
+       relacao nenhuma. De 0.4.0 a 0.8.0, `/robots.txt` respondeu 404.
+
+       O caminho continuou na lista OPERACAO (que so o poupa do redirecionamento
+       canonico), e foi isso que fez tudo parecer resolvido: a mencao
+       sobrevivente num lugar faz supor que o resto continua la.
 
        O que isso custava: no dominio real, nenhuma regra e nenhuma linha
        `Sitemap:` — o buscador descobre o sitemap por ali. No endereco de

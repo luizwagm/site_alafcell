@@ -194,6 +194,40 @@ if [ "$SUBDOMINIO" -eq 0 ]; then
   HSTS_ASSETS='        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;'
 fi
 
+# --------------------------------------------------------------------------
+# A ZONA DO LIMITADOR — arquivo proprio, uma vez so
+#
+# `limit_req_zone` pertence ao contexto http e o nome da zona e global. Dentro
+# do vhost, cada dominio do mesmo site declara a mesma zona e o nginx recusa
+# TUDO com "is already bound to key" — erro que so aparece quando existe o
+# segundo vhost, ou seja, na virada para o dominio de verdade.
+#
+# Num arquivo de conf.d ela e declarada uma vez e o limite fica COMPARTILHADO
+# entre os enderecos: quem abusa pelo www nao ganha cota nova trocando para o
+# dominio sem www.
+# --------------------------------------------------------------------------
+if [ -z "$ENSAIO" ]; then
+  cat > /etc/nginx/conf.d/alafcell-limites.conf <<'LIMITES'
+# Gerado por criar-site.sh — Alafcell Assistec
+# Freio de borda dos formularios. Vale para TODOS os vhosts deste site.
+limit_req_zone $binary_remote_addr zone=alafcell_forms:10m rate=20r/m;
+LIMITES
+  verde "     zona do limitador em /etc/nginx/conf.d/alafcell-limites.conf"
+
+  # VHOSTS ANTIGOS DESTE SITE ainda podem ter a zona dentro deles — e basta um
+  # para o nginx recusar tudo. Tirar a linha (com copia de seguranca) e o que
+  # permite os dois enderecos coexistirem durante a virada.
+  for VELHO in /etc/nginx/sites-available/*; do
+    [ -f "$VELHO" ] || continue
+    [ "$VELHO" = "/etc/nginx/sites-available/$DOMINIO" ] && continue
+    if grep -q 'zone=alafcell_forms' "$VELHO" 2>/dev/null; then
+      cp "$VELHO" "$VELHO.bak-limites-$(date +%Y-%m-%d-%H%M%S)"
+      sed -i '/limit_req_zone .*zone=alafcell_forms/d' "$VELHO"
+      amarelo "     tirei a zona duplicada de $(basename "$VELHO") (copia .bak guardada)"
+    fi
+  done
+fi
+
 ARQ="/etc/nginx/sites-available/$DOMINIO"
 [ -n "$ENSAIO" ] && ARQ="$ENSAIO"
 [ -f "$ARQ" ] && { cp "$ARQ" "$ARQ.bak-$(date +%F-%H%M%S)"; amarelo "     já existia — guardei uma cópia .bak"; }
@@ -234,7 +268,10 @@ cat > "$ARQ" <<NGINX
 # Confira com \`nginx -T\`, não com \`nginx -t\`: o -t aprova bloco que o nginx
 # nem carregou (link quebrado, arquivo fora do include).
 
-limit_req_zone \$binary_remote_addr zone=alafcell_forms:10m rate=20r/m;
+# A zona `alafcell_forms` NAO fica aqui: ela e do contexto http e o nome e
+# global. Com dois vhosts do mesmo site (o dominio e o www, ou o de trabalho e
+# o de producao) o nginx recusaria a configuracao inteira com
+# "is already bound to key". Ela vive em /etc/nginx/conf.d/alafcell-limites.conf.
 
 $BLOCO_WWW
 server {

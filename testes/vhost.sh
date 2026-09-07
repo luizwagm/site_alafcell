@@ -160,6 +160,38 @@ echo ""
   && ok "sem HSTS (herda do domínio pai)" \
   || nao "HSTS repetido no subdomínio — o pai já anuncia com includeSubDomains"
 
+# --------------------------------------------------------------------------
+#  A ZONA DO LIMITADOR NAO PODE ESTAR NO VHOST
+#
+#  `limit_req_zone` e diretiva do contexto http e o nome da zona e GLOBAL.
+#  Dentro do arquivo do vhost, cada dominio do mesmo site declara a mesma zona
+#  e o nginx recusa a configuracao INTEIRA:
+#
+#     [emerg] limit_req_zone "alafcell_forms" is already bound to key
+#             "$binary_remote_addr" in .../alafcell.projetos.luizaugust.me:5
+#
+#  Com um vhost so isso nunca acontece — por isso nenhuma prova via. Ele aparece
+#  no minuto em que existe o segundo, ou seja, na virada para o dominio de
+#  verdade, com o cliente esperando. Aconteceu em 07/09/2026.
+#
+#  A declaracao vive em /etc/nginx/conf.d/alafcell-limites.conf; aqui fica so o
+#  USO, que e por location e pode repetir.
+# --------------------------------------------------------------------------
+echo ""
+echo "  O limitador"
+echo ""
+
+for A in "$REAL" "$SUB"; do
+  N=$(basename "$A" .conf)
+  [ "$(conta "$A" 'limit_req_zone')" -eq 0 ] \
+    && ok "[$N] a zona NÃO é declarada no vhost" \
+    || nao "[$N] a zona está declarada no vhost — com dois domínios o nginx recusa TUDO"
+  # Tirar a declaracao sem deixar o uso seria desligar o freio em silencio.
+  [ "$(conta "$A" 'limit_req zone=alafcell_forms')" -ge 1 ] \
+    && ok "[$N] mas o freio dos formulários continua ligado" \
+    || nao "[$N] o freio sumiu junto com a declaração — os formulários ficaram sem limite"
+done
+
 # O que vale nos dois casos.
 for A in "$REAL" "$SUB"; do
   N=$(basename "$A" .conf)

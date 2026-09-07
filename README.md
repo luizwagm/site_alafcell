@@ -247,8 +247,8 @@ pedir: robots, sitemap, canonical, dados estruturados, 404.
 
 A segunda existe por dois defeitos reais da mesma família. O `/robots.txt`
 respondeu 404 por várias versões enquanto a prova de `Endereco.robots()`
-passava: a função existia, era exportada, estava provada — e ninguém a tinha
-ligado numa rota. O `/saude` era pior: o `deploy.sh` o consulta com `curl -fsS`
+passava: a função existia, era exportada, estava provada — e a **rota tinha sido
+apagada** na 0.4.0, na limpeza que removeu as telas da loja. O `/saude` era pior: o `deploy.sh` o consulta com `curl -fsS`
 para saber se o site subiu, e `-f` falha em 404, então **toda entrega reportaria
 falha com o site no ar**.
 

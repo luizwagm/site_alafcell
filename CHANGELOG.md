@@ -4,6 +4,56 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.10.1 — 07/09/2026 — O `limit_req_zone` derrubava a virada de domínio
+
+Ao rodar o `criar-site.sh` para `alafcell.com.br`, o nginx recusou a
+configuração inteira:
+
+```
+[emerg] limit_req_zone "alafcell_forms" is already bound to key
+        "$binary_remote_addr" in .../alafcell.projetos.luizaugust.me:5
+```
+
+**`limit_req_zone` é diretiva do contexto `http`, e o nome da zona é global.**
+Eu a declarava dentro do arquivo do vhost — o que funciona perfeitamente
+enquanto existe **um** vhost. No minuto em que o site ganha o domínio de
+verdade e passam a existir dois arquivos, os dois declaram a mesma zona e o
+nginx recusa tudo.
+
+Ou seja: um defeito que só podia aparecer **na virada para produção**, com o
+cliente esperando. É o pior momento possível, e não é acaso — é a natureza do
+erro: ele precisa do segundo vhost para existir.
+
+**Agora a zona vive em `/etc/nginx/conf.d/alafcell-limites.conf`**, declarada
+uma vez. De brinde, o limite passa a ser **compartilhado** entre os endereços:
+quem estiver abusando pelo `www` não ganha uma cota nova ao trocar para o
+domínio sem `www`.
+
+O `criar-site.sh` também **limpa a declaração de vhosts antigos** deste site
+(guardando cópia `.bak`), senão o vhost do endereço de trabalho continuaria
+derrubando o nginx durante a transição.
+
+Quatro provas novas em `testes/vhost.sh` (20 no total): a zona **não** pode
+estar no vhost, e o freio dos formulários **tem** que continuar ligado — tirar
+a declaração e levar o uso junto desligaria a proteção em silêncio.
+
+### Correção do que eu afirmei na 0.9.0
+
+Escrevi que `/saude` e `/robots.txt` **nunca tinham sido ligados a uma rota**.
+O git desmente, e o servidor também: em produção, ainda na 0.3.2, o `/saude`
+responde normalmente.
+
+As duas rotas **existiam no primeiro commit** e foram **apagadas na 0.4.0**,
+na limpeza que removeu as telas da loja — vitrine, carrinho, checkout,
+acompanhar. Nada disso tinha relação com elas.
+
+A lição muda, e fica mais útil: não é "esqueci de ligar a rota". É **remoção em
+massa leva junto o que não devia**, e a menção sobrevivente noutro lugar (aqui,
+a lista `OPERACAO`) faz parecer que continua tudo lá. Depois de remover um
+bloco de rotas, pedir cada caminho que sobrou.
+
+---
+
 ## 0.10.0 — 04/09/2026 — ENTREGA AUTOMÁTICA (GitHub Actions)
 
 Dali em diante, publicar é `git push`. O GitHub roda as três suítes e, só se
@@ -85,17 +135,21 @@ e pareceria defeito do código.
 ### Primeiro, quatro coisas que estavam erradas
 
 **O `/saude` respondia 404 — e é o que o deploy usa para saber se o site
-subiu.** Mesma origem do robots: a rota nunca foi escrita, e o caminho estava
-listado entre as rotas de operação, o que fazia parecer que existia. O
+subiu.** Mesma origem do robots, e a origem não é a que eu supus: as duas rotas
+**existiam no primeiro commit** e foram **removidas na 0.4.0**, junto com as
+rotas da loja. A limpeza que tirou vitrine, carrinho, checkout e acompanhar
+levou de arrasto duas rotas de *operação* que não tinham relação nenhuma com a
+loja — e o caminho continuou listado entre as rotas de operação, o que fazia
+parecer que ainda existia. O
 `deploy.sh` pede esse endereço com `curl -fsS`, e `-f` falha em 404: **toda
 entrega ia esgotar as vinte tentativas e reportar que o site não subiu, com o
-site no ar e funcionando.** O Izatec, que foi o molde deste projeto, tem a rota
-— ela se perdeu na cópia junto com a do robots.
+site no ar e funcionando.** O Izatec, que foi o molde deste projeto, tem as
+duas rotas — aqui elas foram apagadas por uma limpeza que mirava outra coisa.
 
 **O `/robots.txt` respondia 404.** A função que monta o arquivo existe desde o
-começo, é exportada e tinha prova passando; a **rota** nunca foi escrita. O
-caminho estava até na lista que o poupa do redirecionamento canônico, o que
-fazia tudo parecer resolvido. No domínio real isso significaria nenhuma regra e
+começo, é exportada e tinha prova passando — e a rota também existia, até a
+0.4.0 removê-la junto com as da loja. O caminho continuou na lista que o poupa
+do redirecionamento canônico, o que fazia tudo parecer resolvido. No domínio real isso significaria nenhuma regra e
 nenhuma linha `Sitemap:` — que é por onde o buscador descobre o mapa do site.
 
 **A descrição que aparece no Google prometia o que o site não tem.** O texto era
