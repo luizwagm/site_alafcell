@@ -239,9 +239,9 @@ Todo o resto responde **404 de propósito** desde a 0.4.0 — inclusive `/loja/`
 npm test
 ```
 
-**312 provas em três suítes**, num banco temporário — nunca no banco do cliente.
+**346 provas em três suítes**, num banco temporário — nunca no banco do cliente.
 
-`testes/provar.cjs` (256) chama as funções direto. `testes/rotas.cjs` (36)
+`testes/provar.cjs` (277) chama as funções direto. `testes/rotas.cjs` (49)
 **sobe o servidor de verdade** numa porta própria e pede o que o buscador vai
 pedir: robots, sitemap, canonical, dados estruturados, 404.
 
@@ -422,7 +422,7 @@ Passo a passo completo em [SUBIR.md](SUBIR.md).
 ## Estado
 
 Site público inteiro pronto e provado: 15 páginas, sem falha de contraste AA,
-sem rolagem horizontal de 320px a 1440px, 312 provas verdes em três suítes e as
+sem rolagem horizontal de 320px a 1440px, 346 provas verdes em três suítes e as
 sabotagens todas pegas. **Entrega automática por GitHub Actions** configurada
 (falta só a chave e os segredos, que são do dono do servidor). O **`/admin` está pronto** — todas as seções do site editáveis em
 telas organizadas, tela de acessos, rascunho com botão de publicar, editores de

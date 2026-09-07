@@ -897,6 +897,133 @@ ok("o texto vem do Google e entra sem marcação", /[<>]/.test(limpa.texto), fal
 verdade("mas o texto em si fica", limpa.texto.includes("atendimento"));
 ok("as estrelas vêm como número", limpa.estrelas, 5);
 
+/* ==========================================================================
+   AS TRÊS REGRAS DE SEMEADURA
+
+   Elas se parecem e fazem coisas diferentes; trocar uma pela outra ou apaga o
+   trabalho do cliente ou impede que qualquer melhoria chegue até ele.
+   ========================================================================== */
+{
+  const { semearTexto, completarSeVazio, atualizarSeIntocado, ajuste: aj } = require("../src/db");
+
+  aj("zz.qa.regra", "valor original", { grupo: "geral", rotulo: "ZZ rótulo" });
+
+  /* `semearTexto` NUNCA toca no valor — é o que roda a cada entrega. */
+  semearTexto("zz.qa.regra", "outro valor", { grupo: "geral", rotulo: "ZZ rótulo novo" });
+  ok("semearTexto não muda o valor",
+     Q.um("SELECT valor FROM config WHERE chave = ?", "zz.qa.regra").valor, "valor original");
+  ok("mas atualiza o rótulo, que é nosso",
+     Q.um("SELECT rotulo FROM config WHERE chave = ?", "zz.qa.regra").rotulo, "ZZ rótulo novo");
+
+  /* `completarSeVazio` preenche só o que está em branco. */
+  completarSeVazio("zz.qa.regra", "não deveria entrar");
+  ok("completarSeVazio respeita quem tem valor",
+     Q.um("SELECT valor FROM config WHERE chave = ?", "zz.qa.regra").valor, "valor original");
+  aj("zz.qa.regra", "");
+  completarSeVazio("zz.qa.regra", "agora sim");
+  ok("e preenche o que está vazio",
+     Q.um("SELECT valor FROM config WHERE chave = ?", "zz.qa.regra").valor, "agora sim");
+  /* O texto de espera conta como vazio: deixá-lo no ar é pior que preencher. */
+  aj("zz.qa.regra", "Preencha o telefone no painel");
+  completarSeVazio("zz.qa.regra", "(81) 99999-0000");
+  ok("o texto de espera também conta como vazio",
+     Q.um("SELECT valor FROM config WHERE chave = ?", "zz.qa.regra").valor, "(81) 99999-0000");
+
+  /* `atualizarSeIntocado` é o único que melhora um texto já entregue — e só
+     quando ninguém o editou. */
+  atualizarSeIntocado("zz.qa.regra", "(81) 99999-0000", "melhorado");
+  ok("atualizarSeIntocado melhora o que ninguém editou",
+     Q.um("SELECT valor FROM config WHERE chave = ?", "zz.qa.regra").valor, "melhorado");
+  aj("zz.qa.regra", "o dono escreveu isto");
+  atualizarSeIntocado("zz.qa.regra", "melhorado", "não deveria entrar");
+  ok("e não encosta no que o dono escreveu",
+     Q.um("SELECT valor FROM config WHERE chave = ?", "zz.qa.regra").valor, "o dono escreveu isto");
+  Q.roda("DELETE FROM config WHERE chave = ?", "zz.qa.regra");
+}
+
+/* ==========================================================================
+   A FICHA QUE O BUSCADOR LÊ
+   ========================================================================== */
+{
+  Adm.gravarTextos({
+    "loja.horario_dados": "Mo-Fr 09:00-18:00\nSa 09:00-13:00",
+    "loja.mapa": "https://maps.google.com/?cid=1",
+    "marca.email": "zz@qa.teste",
+  });
+  Pub.publicar("ZZ QA");
+  const g = JSON.parse(
+    /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      .exec(Pag.home({ headers: {}, url: "/" }))[1])["@graph"];
+  const loja = g.find((n) => JSON.stringify(n["@type"]).includes("LocalBusiness"));
+
+  /* `openingHoursSpecification` é a forma que o Google usa para dizer
+     "aberto agora" no resultado — a diferença entre aparecer com o horário ao
+     lado do nome e aparecer sem. */
+  const spec = loja.openingHoursSpecification || [];
+  ok("o horário sai nas duas formas", spec.length, 2);
+  /* `spec[0] || {}`: prova tem de FALHAR, não estourar — um TypeError aqui
+     derruba a suíte e esconde tudo abaixo. */
+  verdade("com os dias da semana por extenso",
+    ((spec[0] || {}).dayOfWeek || []).includes("Monday")
+    && ((spec[0] || {}).dayOfWeek || []).length === 5);
+  ok("e o sábado separado", ((spec[1] || {}).dayOfWeek || [])[0], "Saturday");
+  ok("com a hora no formato do Schema.org", (spec[0] || {}).opens, "09:00");
+
+  verdade("o mapa liga a página à ficha do negócio", !!loja.hasMap);
+  verdade("o e-mail entra", loja.email === "zz@qa.teste");
+  verdade("como se paga entra", !!loja.paymentAccepted);
+  /* `knowsAbout` é o campo de expertise: não aparece na tela e é o que
+     responde "quem conserta iPhone em Caruaru?". */
+  verdade("e a expertise sai dos serviços cadastrados",
+    (loja.knowsAbout || []).some((k) => /tela/i.test(k)));
+
+  /* Horário mal escrito não vira dado inventado. */
+  Adm.gravarTextos({ "loja.horario_dados": "toda hora" });
+  Pub.publicar("ZZ QA");
+  const g2 = JSON.parse(
+    /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      .exec(Pag.home({ headers: {}, url: "/" }))[1])["@graph"];
+  const loja2 = g2.find((n) => JSON.stringify(n["@type"]).includes("LocalBusiness"));
+  ok("horário que não dá para entender não vira spec", !!loja2.openingHoursSpecification, false);
+  Adm.gravarTextos({ "loja.horario_dados": "" });
+}
+
+/* ==========================================================================
+   O RESUMO PARA AS IAs (/llms.txt)
+
+   Ele é feito para ser citado SEM conferência: um assistente lê, resume e
+   repete com a autoridade de quem consultou a fonte oficial. É o último lugar
+   onde cabe um dado provisório.
+   ========================================================================== */
+{
+  const Llms = require("../src/llms");
+  const guardar = {};
+  for (const c of ["marca.email", "loja.mapa", "marca.telefone"]) {
+    guardar[c] = Q.um("SELECT valor FROM config WHERE chave = ?", c).valor;
+  }
+
+  /* O ESTADO PRECISA SER CRIADO. Sem um campo em texto de espera, a prova
+     passaria com a guarda removida — foi o que aconteceu na primeira versão
+     dela. */
+  ajuste("marca.email", "Preencha o e-mail no painel");
+  ajuste("marca.telefone", "Preencha o telefone no painel");
+  ajuste("loja.mapa", "https://maps.google.com/?cid=1");
+  Pub.publicar("ZZ QA");
+
+  const t = Llms.llms();
+  ok("texto de espera não vaza para o resumo", /preencha/i.test(t), false);
+  verdade("mas o que está preenchido de verdade entra", t.includes("maps.google.com"));
+  ok("e nenhuma marcação escapa para ele", /<[a-z]/i.test(t), false);
+  /* Um assistente que responde sobre a loja precisa saber o que ela NÃO faz:
+     metade das perguntas que chegam a uma assistência é sobre serviço que ela
+     não presta. */
+  verdade("o resumo diz o que a loja não faz", /não faz/i.test(t));
+  verdade("e lista o que ela conserta", /## O que a loja conserta/.test(t));
+
+  for (const [c, v] of Object.entries(guardar)) ajuste(c, v);
+  Pub.publicar("ZZ QA");
+}
+
 /* --- a regra do cliente: 3, e só as de 5 estrelas --- */
 /* Uma resposta como a que o Google manda: cinco avaliações, notas misturadas,
    e mais de três com nota cheia. */

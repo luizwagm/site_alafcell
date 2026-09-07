@@ -77,13 +77,52 @@ User-agent: *
 Disallow: /
 `;
   }
-  return `User-agent: *
+  /* ------------------------------------------------------------------------
+     OS ROBOS DE IA SAO NOMEADOS, E LIBERADOS
+
+     Eles ja passam por omissao — o robots.txt so proibe o que nomeia. Mas
+     "liberado por esquecimento" e "liberado por decisao" parecem iguais no
+     arquivo, e no dia em que alguem colar aqui um robots.txt de modelo da
+     internet (metade deles bloqueia esses robos "por seguranca"), a loja sai
+     das respostas sem ninguem perceber.
+
+     Para uma assistencia tecnica de bairro, ser citada em "onde conserto meu
+     celular em Caruaru?" vale tanto quanto uma posicao na busca — e custa
+     zero. Se um dia a loja quiser sair, troque `Allow` por `Disallow` aqui.
+     ------------------------------------------------------------------------ */
+  /* UM GRUPO SO, e as MESMAS proibicoes.
+
+     ⚠ `robots.txt` NAO HERDA: cada robo obedece a um unico grupo — o mais
+     especifico que casa com o nome dele — e ignora o `User-agent: *` por
+     inteiro. Um grupo `User-agent: GPTBot` com so um `Allow: /` teria
+     LIBERADO o painel para ele, porque o `Disallow: /admin/` mora no outro
+     grupo.
+
+     Listar os nomes juntos, seguidos das mesmas regras, mantem as proibicoes
+     num lugar so — e o proximo caminho proibido nao precisa ser lembrado duas
+     vezes, que e como esse tipo de furo nasce. */
+  const PROIBIDO = ["/admin/", "/restrito/", "/orcamento"];
+  const regras = PROIBIDO.map((c) => `Disallow: ${c}`).join("\n");
+
+  const IA = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot",
+    "Claude-User", "PerplexityBot", "Google-Extended", "Applebot-Extended",
+    "CCBot", "meta-externalagent"];
+
+  return `# Os robôs de IA entram — e isso é decisão, não esquecimento.
+# Ser citada em "onde conserto meu celular em Caruaru?" vale tanto quanto uma
+# posição na busca, e custa zero. Para sair, troque Allow por Disallow abaixo.
+${IA.map((b) => `User-agent: ${b}`).join("\n")}
 Allow: /
-Disallow: /admin/
-Disallow: /restrito/
-Disallow: /orcamento
+${regras}
+
+User-agent: *
+Allow: /
+${regras}
 
 Sitemap: ${SITE}/sitemap.xml
+
+# Resumo do negócio em texto puro, para quem lê a página como dado:
+# ${SITE}/llms.txt
 `;
 }
 

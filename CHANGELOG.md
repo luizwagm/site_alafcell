@@ -4,6 +4,125 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.12.0 — 07/09/2026 — VARREDURA DE SEO: as palavras, a ficha e as IAs
+
+Auditoria com medição, não com checklist. Três achados que valiam a rodada.
+
+### 1. "conserto de celular" aparecia ZERO vezes na página
+
+O site dizia "assistência técnica" — que é como o **setor** se descreve, não
+como o cliente busca. Quem está com o aparelho quebrado na mão digita
+"conserto de celular caruaru", "tela quebrada", "celular molhado". Nenhum
+desses termos existia no texto.
+
+Três campos mudaram, e o texto ficou **melhor** de ler, não pior — isto não é
+encher a página de palavra-chave (o buscador pune, e com razão), é chamar as
+coisas pelo nome que o cliente usa:
+
+| | antes | agora |
+|---|---|---|
+| Título no Google | *(o nome + o slogan)* | **Conserto de celular em Caruaru** — Alafcell Assistec |
+| H1 | Seu celular de volta no mesmo dia | **Conserto de celular em Caruaru**, com o aparelho de volta *no mesmo dia* |
+| Rótulo | Assistência técnica especializada · Caruaru | **Conserto de celular** · Caruaru e região |
+
+### 2. A ficha que o Google lê estava quase vazia
+
+Ela tinha nome, url, imagem — e mais nada. **Sem telefone, endereço,
+coordenadas, horário, mapa nem logotipo.** Numa busca local, é exatamente isso
+que decide quem aparece: o buscador precisa saber onde a loja fica e como
+chegar.
+
+Os dados existem e são públicos — estão na ficha ALAFCELL ASSISTEC do próprio
+Google. Foram para o cadastro inicial: endereço com CEP, bairro, telefone,
+WhatsApp, coordenadas e o link do mapa pelo CID.
+
+A ficha passou de 6 para **20 campos**: `telephone`, `address`, `geo`,
+`hasMap`, `logo`, `slogan`, `email`, `paymentAccepted`, `currenciesAccepted`,
+`openingHoursSpecification` e `knowsAbout`.
+
+**`knowsAbout` é o campo de expertise** — não aparece na tela e é o que responde
+"quem conserta iPhone em Caruaru?". Sai dos serviços e das marcas que a loja
+realmente cadastrou; uma lista inventada ali seria a loja afirmando competência
+que não tem.
+
+**O horário não foi preenchido, de propósito.** A ficha do Google diz "Aberto 24
+horas", o que quase certamente é cadastro errado dela, e inventar horário de
+loja é mandar cliente para uma porta fechada. Fica para o dono, e o verificador
+cobra a cada conferência.
+
+### 3. Três regras de semeadura, e a diferença entre elas importa
+
+Uma melhoria de texto não chegava ao cliente: o campo já existe no banco dele, e
+`semearTexto` (de propósito) nunca toca no valor. Faltavam duas regras:
+
+- **`completarSeVazio`** — preenche só o que está em branco. É o único jeito de
+  completar o cadastro de quem já tem o campo (vazio). O texto de espera conta
+  como vazio: deixá-lo no ar é pior que preencher.
+- **`atualizarSeIntocado`** — melhora um texto **só se ele ainda for exatamente
+  o que nós escrevemos**. Se o dono mudou uma vírgula, a decisão é dele.
+
+A pergunta certa não era "está vazio?", e sim **"alguém mexeu nisto?"**.
+
+### Para as IAs recomendarem a loja
+
+**`/llms.txt`** — convenção recente (llmstxt.org): o resumo do negócio em texto
+puro, no lugar previsível. Um assistente que responde "quem conserta celular em
+Caruaru?" não vai desmontar uma landing de 58 KB para achar o telefone.
+
+Ele traz endereço, contato, o que a loja conserta, marcas, cidades atendidas, o
+FAQ inteiro — **e o que a loja NÃO faz**. Isso não é modéstia: metade das
+perguntas que chegam a uma assistência é sobre serviço que ela não presta, e um
+"não" claro na fonte evita o cliente errado e a resposta errada.
+
+Nada ali é inventado: tudo sai do painel, e campo vazio não vira linha. Um
+arquivo feito para ser citado **sem conferência** é o último lugar onde cabe um
+dado provisório.
+
+**Os robôs de IA passaram a ser nomeados no `robots.txt`** — e liberados. Eles
+já entravam por omissão, mas "liberado por esquecimento" e "liberado por
+decisão" parecem iguais no arquivo: no dia em que alguém colar ali um
+robots.txt de modelo da internet, metade deles bloqueia esses robôs "por
+segurança", e a loja sai das respostas sem ninguém perceber.
+
+⚠ **E aqui eu abri um buraco antes de fechá-lo.** `robots.txt` **não herda**:
+cada robô obedece a **um** grupo — o mais específico que casa com o nome dele —
+e ignora o `User-agent: *` inteiro. Meu primeiro rascunho dava a cada robô um
+grupo com só `Allow: /`, o que **liberou o painel para dez robôs**, porque o
+`Disallow: /admin/` morava no outro grupo. Agora é um grupo só, com as mesmas
+proibições, e há prova conferindo que **todo** grupo proíbe o painel.
+
+### Carregamento
+
+O logotipo do **rodapé** baixava junto com o do topo — ninguém o vê antes de
+rolar, e ele disputava banda com a foto que a pessoa está esperando. E a foto do
+topo, que quase sempre é o maior elemento da primeira tela (o que o buscador
+mede como LCP), não tinha prioridade nenhuma.
+
+Imagens que carregam de imediato: de 5 para 3. Mais `og:image:width/height/alt`,
+que evitam o retângulo em branco enquanto o WhatsApp baixa a imagem para
+descobrir o tamanho — e é no WhatsApp que este link mais circula.
+
+### Corrigido no caminho
+
+**`loja.horario_dados` estava na lista de texto puro**, e `semHtml` colapsa
+quebras: as duas faixas ("Mo-Fr…" e "Sa…") viravam uma linha só, que o
+conversor não entende. **O horário simplesmente sumia da ficha.** Achado por
+uma prova nova.
+
+### Provas
+
+277 na suíte principal (eram 256), 49 nas de rota (eram 36). **Onze sabotagens,
+e uma passou na primeira rodada**: a prova de que texto de espera não vaza para
+o `/llms.txt` era cega, porque no cenário do teste nenhum campo lido estava com
+texto de espera. **Uma prova só vê o defeito se o estado de que ela precisa
+existir** — teve de ser criado.
+
+O `verificar.sh` passou a cobrar de fora o que só o dono pode preencher:
+telefone, endereço, coordenadas, mapa, expertise, horário estruturado, e o
+`llms.txt` sem texto de espera dentro.
+
+---
+
 ## 0.11.4 — 07/09/2026 — O passo das dependências falhava MUDO
 
 ```

@@ -251,7 +251,6 @@ function textos() {
    Por isso a lista é por DESTINO, não por tipo.
    ========================================================================== */
 const TEXTO_PURO = new Set([
-  "loja.horario_dados",   /* vira JSON-LD (openingHours) */
   "confianca.foto_alt",   /* vira o atributo alt */
   "marca.nome",           /* vira <title> e o nome no Schema.org */
   "marca.cnpj", "marca.telefone", "marca.whatsapp", "marca.email",
@@ -274,7 +273,11 @@ const TEXTO_PURO = new Set([
    0.8.0, o que estava gravado tinha `<p>` — que a secao de contato imprimia
    LITERAL na tela do visitante.
    ========================================================================== */
-const TEXTO_EM_LINHAS = new Set(["loja.endereco", "loja.horario"]);
+/* `loja.horario_dados` entra aqui, e nao no TEXTO_PURO: ele e UMA FAIXA POR
+   LINHA ("Mo-Fr 09:00-18:00" / "Sa 09:00-13:00"), e `semHtml` colapsa quebras
+   — as duas faixas viravam uma linha so, que o conversor do Schema.org nao
+   entende. O horario simplesmente sumia da ficha do Google. */
+const TEXTO_EM_LINHAS = new Set(["loja.endereco", "loja.horario", "loja.horario_dados"]);
 
 function gravarTextos(corpo) {
   let n = 0;

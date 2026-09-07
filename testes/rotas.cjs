@@ -174,6 +174,35 @@ async function esperarSubir(tentativas = 60) {
     }
     ok("nenhuma página do sitemap responde erro", mortas, []);
 
+    /* ------------------------------------------- os robôs de IA e o llms.txt */
+    /* ⚠ ROBOTS.TXT NÃO HERDA: um robô obedece a UM grupo — o mais específico
+       que casa com o nome dele — e ignora o `User-agent: *` inteiro. Dar grupo
+       próprio ao GPTBot com só um `Allow: /` LIBERA o painel para ele, porque
+       o `Disallow: /admin/` mora no outro grupo. Aconteceu aqui. */
+    {
+      const grupos = robots.corpo.split(/\n\s*\n/).filter((g) => /User-agent:/.test(g));
+      verdade("há um grupo para os robôs de IA e outro para o resto", grupos.length >= 2);
+      const semProibicao = grupos.filter((g) => !/Disallow: \/admin\//.test(g));
+      ok("TODO grupo proíbe o painel — nenhum herda do outro", semProibicao.length, 0);
+      verdade("os robôs de IA são nomeados", /User-agent: GPTBot/.test(robots.corpo));
+      verdade("e o Claude também", /User-agent: ClaudeBot/.test(robots.corpo));
+      verdade("o robots aponta para o llms.txt", robots.corpo.includes("/llms.txt"));
+    }
+
+    const llms = await pedir("/llms.txt");
+    ok("/llms.txt responde 200", llms.codigo, 200);
+    verdade("como texto puro", /text\/plain/.test(llms.cabecalhos["content-type"] || ""));
+    verdade("com o nome do negócio", llms.corpo.includes("Alafcell"));
+    verdade("o que a loja conserta", /## O que a loja conserta/.test(llms.corpo));
+    /* Metade das perguntas que chegam a uma assistência é sobre serviço que ela
+       não presta. Um "não" claro evita o cliente errado — e a resposta errada
+       de um assistente que precisou adivinhar. */
+    verdade("e o que ela NÃO faz", /## O que a loja não faz/.test(llms.corpo));
+    /* Um arquivo feito para ser citado sem conferência é o último lugar onde
+       cabe texto de espera: ele seria repetido com a autoridade da fonte. */
+    ok("nenhum texto de espera vazou para ele", /preencha/i.test(llms.corpo), false);
+    ok("nem marcação", /<[a-z]/i.test(llms.corpo), false);
+
     /* ------------------------------------------------------- o que o robô lê */
     const casa = await pedir("/");
     ok("a home responde 200", casa.codigo, 200);
@@ -221,6 +250,22 @@ async function esperarSubir(tentativas = 60) {
     ok("e toda pergunta marcada está visível na página", foraDaTela, []);
     ok("a pergunta vai sem marcação (é texto no resultado da busca)",
       marcadas.some((p) => /[<>]/.test(p)), false);
+
+    /* --------------------------------- o llms fica fora do endereço de trabalho */
+    /* Publicar o resumo do negócio num endereço que pede para não ser indexado
+       é dizer as duas coisas ao mesmo tempo — o mesmo motivo pelo qual o
+       sitemap sai vazio lá. */
+    {
+      const { spawnSync } = require("node:child_process");
+      const r = spawnSync(process.execPath, ["-e", `
+        process.env.ALAFCELL_SITE = "https://alafcell.projetos.luizaugust.me";
+        delete process.env.ALAFCELL_INDEXAVEL;
+        const E = require(${JSON.stringify(path.join(RAIZ, "src", "endereco.js"))});
+        console.log(E.INDEXAVEL ? "INDEXAVEL" : "TRABALHO");
+      `], { cwd: RAIZ, encoding: "utf8" });
+      ok("no endereço de trabalho o site não é indexável",
+         (r.stdout || "").trim(), "TRABALHO");
+    }
 
     /* ----------------------------------------------------------------- 404 */
     const perdida = await pedir("/pagina-que-nunca-existiu/");

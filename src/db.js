@@ -596,6 +596,53 @@ function semearTexto(chave, valor, meta = {}) {
 }
 
 /* ==========================================================================
+   COMPLETAR UM CAMPO QUE ESTA VAZIO
+
+   `semearTexto` nunca toca no valor — o que e certo para texto, e insuficiente
+   para o cadastro da loja: os campos ja EXISTEM no banco (vazios), entao um
+   padrao novo nunca chegaria neles.
+
+   Aqui o valor entra **so quando esta vazio**. Nada que a pessoa tenha escrito
+   e sobrescrito; o que estava em branco deixa de estar.
+
+   Reservado a DADO DE IDENTIDADE (endereco, telefone, coordenadas): campo de
+   contato vazio deixa o site pior e o valor e verificavel na ficha publica do
+   negocio. Texto de marketing nao entra aqui — aquilo e opiniao do dono, e
+   vazio pode ser escolha.
+   ========================================================================== */
+function completarSeVazio(chave, valor) {
+  const l = Q.um("SELECT valor FROM config WHERE chave = ?", chave);
+  if (!l) return;                       /* nao existe: quem cria e o semearTexto */
+  const atual = String(l.valor || "").trim();
+  /* O texto de espera conta como vazio: ele existe para ser trocado, e deixa-lo
+     no ar e pior do que preencher com o dado real. */
+  if (atual && !/^preencha /i.test(atual)) return;
+  Q.roda("UPDATE config SET valor = ? WHERE chave = ?", String(valor), chave);
+}
+
+/* ==========================================================================
+   ATUALIZAR SO O QUE AINDA E O TEXTO QUE NOS ESCREVEMOS
+
+   Um texto padrao pode melhorar depois — porque a redacao ficou melhor, ou
+   porque as palavras nao eram as que o cliente digita na busca. Mas o campo ja
+   existe no banco de quem instalou antes, e `semearTexto` (de proposito) nunca
+   toca no valor.
+
+   A pergunta certa nao e "esta vazio?", e sim **"alguem mexeu nisto?"**. Se o
+   valor e EXATAMENTE o padrao anterior, ninguem mexeu, e melhorar e seguro. Se
+   mudou uma virgula, a decisao foi do dono e fica como esta.
+
+   Por isso o padrao ANTIGO e um parametro: e ele que separa "nunca editado" de
+   "editado". Sem ele, so haveria sobrescrever ou desistir.
+   ========================================================================== */
+function atualizarSeIntocado(chave, valorAntigo, valorNovo) {
+  const l = Q.um("SELECT valor FROM config WHERE chave = ?", chave);
+  if (!l) return;
+  if (String(l.valor) !== String(valorAntigo)) return;   /* o dono mexeu: respeitar */
+  Q.roda("UPDATE config SET valor = ? WHERE chave = ?", String(valorNovo), chave);
+}
+
+/* ==========================================================================
    DINHEIRO
 
    Entra como centavos inteiros e sai formatado. As duas funções ficam juntas
@@ -648,4 +695,4 @@ function codigoLivre(tabela, prefixo) {
   throw new Error("não consegui sortear um código livre para " + tabela);
 }
 
-module.exports = { Q, txt, ajuste, semearTexto, reais, centavos, codigo, codigoLivre, CAMINHO, db };
+module.exports = { Q, txt, ajuste, semearTexto, completarSeVazio, atualizarSeIntocado, reais, centavos, codigo, codigoLivre, CAMINHO, db };

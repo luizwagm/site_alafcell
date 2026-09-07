@@ -212,6 +212,52 @@ case "$HOST" in
     ;;
 esac
 
+# ------------------------------------------------------- o que o Google lê
+azul "Ficha do negócio"
+LD=$(echo "$HOME_HTML" | tr -d '\n' | grep -o '<script type="application/ld+json">.*</script>' | head -1)
+
+confere_ld() {   # $1 = campo, $2 = por que importa
+  if echo "$LD" | grep -q "\"$1\""; then
+    verde "$1"
+  else
+    amarelo "$1 ausente — $2"
+  fi
+}
+confere_ld telephone   "o botão de ligar do resultado de busca não aparece"
+confere_ld address     "sem endereço a loja não entra na busca local"
+confere_ld geo         "é o que responde 'perto de mim' sem depender do endereço"
+confere_ld hasMap      "é o que liga esta página à ficha do negócio no Maps"
+confere_ld knowsAbout  "é o campo que responde 'quem conserta iPhone em Caruaru?'"
+confere_ld areaServed  "sem ele, só quem busca por Caruaru encontra"
+# O horário é o mais esquecido, e é o que decide se o Google mostra
+# "aberto agora" ao lado do nome.
+if echo "$LD" | grep -q "openingHoursSpecification"; then
+  verde "horário estruturado"
+else
+  amarelo "horário estruturado ausente — preencha 'Horário para o Google' no /admin"
+  echo   "      (formato: uma faixa por linha, ex.: Mo-Fr 09:00-18:00)"
+fi
+
+# ---------------------------------------------------- o resumo para as IAs
+LLMS=$(pega "/llms.txt")
+if echo "$LLMS" | grep -q "^# "; then
+  verde "llms.txt ($(echo "$LLMS" | wc -c) bytes)"
+  # Ele é feito para ser citado SEM conferência: um dado provisório aqui seria
+  # repetido por um assistente com a autoridade da fonte oficial.
+  echo "$LLMS" | grep -qi "preencha" \
+    && falha "…mas há texto de espera dentro dele — preencha o cadastro no /admin" \
+    || verde "sem texto de espera dentro"
+else
+  amarelo "llms.txt não respondeu (só existe no endereço público)"
+fi
+
+# Os robôs de IA obedecem a UM grupo só e ignoram o `User-agent: *`: um grupo
+# sem os Disallow libera o painel para eles.
+GRUPOS_SEM_BLOQUEIO=$(echo "$ROBOTS" | awk -v RS='' '/User-agent:/ && !/Disallow: \/admin\//' | grep -c 'User-agent:' || true)
+[ "${GRUPOS_SEM_BLOQUEIO:-0}" -eq 0 ] \
+  && verde "todo grupo do robots proíbe o painel" \
+  || falha "há grupo no robots.txt sem 'Disallow: /admin/' — robots.txt não herda regras"
+
 # ------------------------------------------------------------- segurança
 azul "Segurança"
 CAB=$(curl -s -I --max-time 10 "$ALVO/" | tr -d '\r')

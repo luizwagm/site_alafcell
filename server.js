@@ -267,7 +267,7 @@ const servidor = http.createServer(async (req, res) => {
      Sem isto, o redirecionamento canônico o mandava para "/orcamento/" antes
      de a rota existir — e a query ia junto, então a mensagem parecia montada
      e o navegador parava num 404. */
-  const OPERACAO = ["/saude", "/robots.txt", "/sitemap.xml", "/manifest.webmanifest", "/orcamento",
+  const OPERACAO = ["/saude", "/robots.txt", "/sitemap.xml", "/llms.txt", "/manifest.webmanifest", "/orcamento",
     /* A previa do painel tambem nao e pagina do site: sem isto o
        redirecionamento canonico a mandaria para "/admin/previa/", que nao
        existe — o mesmo tropeco que o /orcamento deu. */
@@ -592,6 +592,22 @@ const servidor = http.createServer(async (req, res) => {
         demo: Demo.LIGADO,
         pixDemo: !pix || pix === Demo.CHAVE_DEMO,
       }), TIPOS[".json"]);
+    }
+
+    /* ====================================================================
+       LLMS.TXT — o resumo do negocio em texto puro
+
+       Convencao recente (llmstxt.org) para assistentes que respondem
+       perguntas lendo a web. Nao substitui o Schema.org — e o mesmo fato dito
+       de outra forma, para quem le de outro jeito.
+
+       Fica FORA do endereco de trabalho, como o sitemap: publicar o resumo do
+       negocio num endereco que pede para nao ser indexado e dizer as duas
+       coisas ao mesmo tempo.
+       ==================================================================== */
+    if (p === "/llms.txt") {
+      if (!Endereco.INDEXAVEL) return responder(res, 404, Paginas.erro404(req));
+      return responder(res, 200, require("./src/llms").llms(), TIPOS[".txt"]);
     }
 
     /* ====================================================================

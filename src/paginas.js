@@ -158,7 +158,12 @@ function home(req) {
                varredura de luz passa por cima dela, e não no lugar dela.
                "fetchpriority=high" porque esta é a maior imagem visível na
                primeira dobra — é ela que o navegador precisa buscar primeiro. -->
-          <img class="fone__foto" src="/assets/img/banco/oficina.webp" alt=""
+          <!-- fetchpriority="high": esta e quase sempre a maior imagem da
+               primeira tela — o que o buscador mede como LCP. Sem a marca, o
+               navegador a trata como qualquer outra e ela entra na fila atras
+               do CSS e das fontes. (Sem crases: este comentario vive dentro de
+               um template literal, e a crase fecharia a string.) -->
+          <img class="fone__foto" fetchpriority="high" src="/assets/img/banco/oficina.webp" alt=""
                width="1200" height="800" fetchpriority="high" decoding="async">
           <span class="fone__luz"></span>
         </div>
@@ -639,8 +644,89 @@ function jsonldLoja(perguntas = []) {
   const lat = txt("loja.latitude", ""), lon = txt("loja.longitude", "");
   if (lat && lon) ficha.geo = { "@type": "GeoCoordinates", latitude: lat, longitude: lon };
 
+  /* ------------------------------------------------------------------------
+     HORARIO — as duas formas, porque elas servem a leitores diferentes
+
+     `openingHours` e a forma curta ("Mo-Fr 09:00-18:00"). O
+     `openingHoursSpecification` e a estruturada, e e ela que o Google usa para
+     dizer "aberto agora" no resultado da busca — a diferenca entre aparecer
+     com o horario ao lado do nome e aparecer sem.
+
+     A conversao entende o formato curto e nao inventa nada: sem o campo
+     preenchido, nenhuma das duas sai.
+     ------------------------------------------------------------------------ */
   const horas = txt("loja.horario_dados", "").split("\n").map((l) => l.trim()).filter(Boolean);
-  if (horas.length) ficha.openingHours = horas;
+  if (horas.length) {
+    ficha.openingHours = horas;
+
+    const DIAS = {
+      mo: "Monday", tu: "Tuesday", we: "Wednesday", th: "Thursday",
+      fr: "Friday", sa: "Saturday", su: "Sunday",
+    };
+    const ORDEM = ["mo", "tu", "we", "th", "fr", "sa", "su"];
+    const spec = [];
+    for (const linha of horas) {
+      const m = /^([A-Za-z,\-]+)\s+(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/.exec(linha);
+      if (!m) continue;
+      const dias = [];
+      for (const pedaco of m[1].split(",")) {
+        const faixa = pedaco.split("-").map((d) => d.trim().slice(0, 2).toLowerCase());
+        if (faixa.length === 2) {
+          const [a, b] = faixa.map((d) => ORDEM.indexOf(d));
+          if (a < 0 || b < 0) continue;
+          /* A faixa pode dar a volta na semana (Sa-Su, Fr-Mo). */
+          for (let i = a; ; i = (i + 1) % 7) {
+            dias.push(ORDEM[i]);
+            if (i === b) break;
+          }
+        } else if (DIAS[faixa[0]]) dias.push(faixa[0]);
+      }
+      if (!dias.length) continue;
+      spec.push({
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: dias.map((d) => DIAS[d]),
+        opens: m[2].length === 4 ? "0" + m[2] : m[2],
+        closes: m[3].length === 4 ? "0" + m[3] : m[3],
+      });
+    }
+    if (spec.length) ficha.openingHoursSpecification = spec;
+  }
+
+  /* O link do mapa: e por ele que o buscador liga esta pagina a ficha do
+     negocio no Maps — as duas passam a falar da mesma loja, e nao de duas. */
+  const mapa = txt("loja.mapa", "");
+  if (/^https?:\/\//.test(mapa)) ficha.hasMap = mapa;
+
+  /* O logotipo — o Google usa este campo para a imagem que acompanha o nome do
+     negócio no painel de informações. Sem ele, ele escolhe uma da página. */
+  ficha.logo = { "@type": "ImageObject", url: SITE + "/assets/img/og.png" };
+
+  const frase = semHtml(txt("marca.slogan", "")).trim();
+  if (frase) ficha.slogan = frase;
+
+  const email = txt("marca.email", "");
+  if (email && email.includes("@")) ficha.email = semHtml(email);
+
+  /* Como se paga. Numa assistencia, "aceita Pix?" e pergunta de balcao — e uma
+     das que as IAs respondem lendo a ficha. */
+  ficha.currenciesAccepted = "BRL";
+  ficha.paymentAccepted = "Dinheiro, Pix, Cartão de crédito, Cartão de débito";
+
+  /* ------------------------------------------------------------------------
+     NO QUE A LOJA ENTENDE
+
+     `knowsAbout` e o campo de EXPERTISE. Ele nao aparece na tela e nao muda o
+     visual — serve para quem le a pagina como dado: o buscador, e os
+     assistentes que respondem "quem conserta iPhone em Caruaru?".
+
+     Sai dos servicos e das marcas que a loja realmente cadastrou. Uma lista
+     inventada aqui seria a loja afirmando competencia que nao tem.
+     ------------------------------------------------------------------------ */
+  const sabe = [
+    ...Pub.servicos(20).map((s) => semHtml(s.nome)),
+    ...Pub.marcas().map((m) => `Conserto de celular ${semHtml(m.nome)}`),
+  ].filter(Boolean).slice(0, 24);
+  if (sabe.length) ficha.knowsAbout = sabe;
 
   const insta = txt("marca.instagram", "");
   if (insta) ficha.sameAs = [insta];

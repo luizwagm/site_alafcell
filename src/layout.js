@@ -77,11 +77,17 @@ function marca(contexto = "topo") {
     return `<img class="marca marca--emblema" src="/assets/img/emblema.webp"
       alt="${nome}" width="120" height="132" decoding="async">`;
   }
+  /* NO RODAPE, ADIAR. As duas imagens da marca são as mesmas do topo, mas lá
+     embaixo ninguém as vê antes de rolar — e baixá-las de imediato faz com que
+     disputem banda com a foto que a pessoa está esperando ver. Num celular
+     velho com rede ruim, que é o público desta assistência, isso é a diferença
+     entre esperar e voltar. */
+  const adiar = contexto === "rodape" ? ' loading="lazy"' : "";
   return `<span class="marca">
     <img class="marca__emblema" src="/assets/img/emblema.webp" alt="" aria-hidden="true"
-         width="120" height="132" decoding="async">
+         width="120" height="132" decoding="async"${adiar}>
     <img class="marca__texto" src="/assets/img/logotipo-texto.webp" alt="${nome}"
-         width="1400" height="504" decoding="async">
+         width="1400" height="504" decoding="async"${adiar}>
   </span>`;
 }
 
@@ -183,7 +189,7 @@ function rodape() {
   <div class="env">
     <div class="rodape__topo">
       <div class="rodape__marca">
-        ${marca()}
+        ${marca("rodape")}
         <p class="rodape__frase">${txt("marca.slogan",
           "Assistência técnica especializada em Caruaru. A gente busca, conserta e devolve.")}</p>
         <div class="rodape__social">
@@ -324,6 +330,13 @@ ${CABECALHO_ROBOS ? `<!-- Endereço de TRABALHO: fora do índice. A etiqueta aco
 <meta property="og:description" content="${esc(descricao || "")}">
 <meta property="og:url" content="${SITE}${canonical}">
 <meta property="og:image" content="${esc(og)}">
+<!-- As dimensões evitam que o WhatsApp e o Facebook mostrem um espaço em
+     branco enquanto baixam a imagem para descobrir o tamanho — e é no
+     WhatsApp que este link mais circula. O "alt" e lido em voz alta por quem
+     recebe o link com leitor de tela. -->
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(nome)} — assistência técnica de celular em ${esc(txt("loja.cidade", "Caruaru"))}">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary_large_image">
 

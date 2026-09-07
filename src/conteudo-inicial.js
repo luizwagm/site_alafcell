@@ -19,7 +19,7 @@
       vai para o Google Meu Negócio e para o JSON-LD, e ninguém percebe que
       está errado até um cliente ir ao lugar errado.
    ========================================================================== */
-const { Q, ajuste, semearTexto } = require("./db");
+const { Q, ajuste, semearTexto, completarSeVazio, atualizarSeIntocado } = require("./db");
 
 /* ==========================================================================
    TEXTOS
@@ -164,7 +164,11 @@ function textos() {
      — e continuavam prometendo preço na tela e loja de aparelhos, removidos do
      site na 0.4.0. Promessa que a página não cumpre faz quem clica voltar em
      segundos, e esse retorno derruba a posição. */
-  T("seo.titulo", "", "seo", "Título no Google (home)", "texto", 1,
+  /* 50 caracteres, e comeca pelo que a pessoa digitou: o buscador destaca em
+     negrito o trecho que casa com a busca, e o comeco e o que sobrevive ao
+     corte em tela pequena. */
+  T("seo.titulo", "Conserto de celular em Caruaru — Alafcell Assistec",
+    "seo", "Título no Google (home)", "texto", 1,
     "Até 60 caracteres. Vazio usa \"<nome da empresa> — <frase da marca>\". "
     + "Comece pelo que a pessoa digita: \"Assistência técnica de celular em Caruaru\".");
   T("seo.descricao",
@@ -178,8 +182,9 @@ function textos() {
     + "derruba a posição na busca.");
 
   /* ---------------------------------------------------------------- topo */
-  T("home.rotulo", "Assistência técnica especializada · Caruaru", "home", "Rótulo acima do título", "texto", 1);
-  T("home.titulo", "Seu celular de volta<br><em>no mesmo dia</em>", "home", "Título do topo", "area", 2,
+  T("home.rotulo", "Conserto de celular · Caruaru e região", "home", "Rótulo acima do título", "texto", 1);
+  T("home.titulo", "Conserto de celular em Caruaru,<br>com o aparelho de volta <em>no mesmo dia</em>",
+    "home", "Título do topo", "area", 2,
     "O que estiver entre <em> e </em> sai em vermelho. Use <br> para quebrar a linha.");
   T("home.texto",
     "Tela, bateria, conector de carga, câmera e placa. Diagnóstico na sua frente, preço fechado antes de abrir o aparelho e garantia por escrito.",
@@ -447,8 +452,86 @@ function faq() {
   lista.forEach(([p, r], i) => ins.run(p, r, i, agora));
 }
 
+/* ==========================================================================
+   O CADASTRO DA LOJA — o que mais pesa numa busca local
+
+   A ficha que o site publica para o Google tinha nome, endereco na tela e mais
+   nada: sem telefone, sem coordenadas, sem CEP. Numa busca por "conserto de
+   celular perto de mim", e exatamente isso que decide quem aparece — o
+   buscador precisa saber ONDE fica e COMO chegar.
+
+   Os valores abaixo sao PUBLICOS e verificaveis: estao na ficha ALAFCELL
+   ASSISTEC do proprio Google (lida em 07/09/2026). Nao ha nada inventado aqui.
+
+   `completarSeVazio` e nao `ajuste`: o que a loja tiver escrito fica como
+   esta. Isto so preenche o que esta em branco — e um campo de contato em
+   branco deixa o site pior sem que ninguem perceba.
+
+   ⚠ O HORARIO NAO ENTRA. A ficha do Google diz "Aberto 24 horas", o que quase
+   certamente e um cadastro errado dela, e o formato tecnico
+   (`loja.horario_dados`) exige a semana inteira. Inventar horario de loja e
+   mandar cliente para uma porta fechada. Fica para o dono preencher, e o
+   verificador cobra.
+   ========================================================================== */
+function cadastroDaLoja() {
+  const daFicha = {
+    "loja.endereco": "Rua Benjamin Constant, 31\nSão Francisco",
+    "loja.bairro": "São Francisco",
+    "loja.cidade": "Caruaru",
+    "loja.uf": "PE",
+    "loja.cep": "55006-210",
+    /* As coordenadas fazem o `geo` do Schema.org existir — é o que responde
+       "perto de mim" sem depender de o buscador adivinhar pelo endereço. */
+    "loja.latitude": "-8.291555",
+    "loja.longitude": "-35.9770444",
+    /* O link pelo CID identifica o LUGAR e sobrevive à reescrita da URL. */
+    "loja.mapa": "https://maps.google.com/?cid=1757333140515284266",
+    "marca.telefone": "(81) 99707-2502",
+    "marca.whatsapp": "5581997072502",
+  };
+  for (const [chave, valor] of Object.entries(daFicha)) completarSeVazio(chave, valor);
+}
+
+/* ==========================================================================
+   AS PALAVRAS QUE O CLIENTE DIGITA
+
+   "conserto de celular" aparecia ZERO vezes na pagina. O site dizia
+   "assistencia tecnica" — como o SETOR se descreve, nao como quem esta com o
+   aparelho quebrado busca. Quem procura digita "conserto de celular caruaru",
+   "tela quebrada", "celular molhado".
+
+   Isto NAO e encher a pagina de palavra-chave (o buscador pune isso, e com
+   razao): e chamar as coisas pelo nome que o cliente usa. Os textos ficam
+   melhores de ler, nao piores.
+
+   `atualizarSeIntocado` porque estes campos JA EXISTEM no banco de quem
+   instalou antes: so muda o que ainda e exatamente o texto que escrevemos. Se
+   o dono reescreveu, a redacao e dele.
+   ========================================================================== */
+function palavrasDeBusca() {
+  const melhorias = [
+    ["home.rotulo",
+      "Assistência técnica especializada · Caruaru",
+      "Conserto de celular · Caruaru e região"],
+    ["home.titulo",
+      "Seu celular de volta<br><em>no mesmo dia</em>",
+      "Conserto de celular em Caruaru,<br>com o aparelho de volta <em>no mesmo dia</em>"],
+    /* "tela quebrada" e "celular molhado" sao como o problema e descrito na
+       busca — "tela" e "placa" sao como a loja o nomeia na bancada. */
+    ["home.texto",
+      "Tela, bateria, conector de carga, câmera e placa. Diagnóstico na sua frente, "
+      + "preço fechado antes de abrir o aparelho e garantia por escrito.",
+      "Tela quebrada, bateria viciada, conector de carga, câmera e celular molhado. "
+      + "Diagnóstico na sua frente, preço fechado antes de abrir o aparelho e "
+      + "garantia por escrito."],
+  ];
+  for (const [chave, antigo, novo] of melhorias) atualizarSeIntocado(chave, antigo, novo);
+}
+
 function semear() {
   textos();
+  cadastroDaLoja();
+  palavrasDeBusca();
   servicos();
   aparelhos();
   avaliacoesExemplo();
