@@ -4,6 +4,74 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.11.0 — 07/09/2026 — AS AVALIAÇÕES REAIS DO GOOGLE, E O SELO QUE LEVA A ELAS
+
+A ficha da loja no Google existe: **ALAFCELL ASSISTEC**, R. Benjamin Constant,
+31 — São Francisco, Caruaru. **Nota 5,0 com 38 avaliações.**
+
+As três de exemplo saíram. No lugar entraram as **três primeiras avaliações de
+cinco estrelas da ficha**, com o texto que está lá, e o selo virou link para a
+ficha — o mesmo desenho do Forms Fitness.
+
+O link usa o **CID** da ficha (`maps.google.com/?cid=…`), e não o endereço
+longo do Maps: o CID é o identificador do lugar e continua valendo quando o
+Google reescreve a URL, que ele reescreve.
+
+### A origem de cada avaliação passou a ser declarada
+
+Na 0.8.0 o site só dava o crédito "Avaliação no Google" quando os dados vinham
+da API — porque aí ele *sabe*. Avaliação digitada recebia "Cliente da
+Alafcell".
+
+Mas o caso real é um terceiro: **o dono copia da própria ficha do Google**. São
+do Google de verdade, e negar o crédito esconderia do visitante a prova social
+mais forte que a loja tem — uma nota que ele confere clicando no selo.
+
+Adivinhar pelo contexto ("se tem link, é do Google") daria o crédito a qualquer
+texto digitado. Então virou **campo por avaliação**: `Copiada da nossa ficha do
+Google`, com padrão "sim" porque é o que a tela pede. Elogio que chegou por
+WhatsApp ou no balcão é verdadeiro do mesmo jeito, mas **não está no Google** —
+desmarque, e aquele cartão passa a dizer "Cliente da Alafcell".
+
+O crédito é **por cartão**, não da seção: as duas origens podem conviver na
+mesma página, cada uma dizendo o que é. A origem aparece **na lista** do
+painel, e não escondida dentro do formulário — quem revisa não abre um por um.
+
+### O selo aparece com o link, mesmo sem nota
+
+Antes ele exigia a nota preenchida. Agora, com link e sem nota, ele diz apenas
+**"Ver as avaliações no Google"** — sem inventar número, que é o mesmo desenho
+do Forms Fitness. Sem link **e** sem nota não há selo: um selo do Google que não
+leva ao Google é enfeite.
+
+### Migração
+
+`CREATE TABLE IF NOT EXISTS` não acrescenta coluna em tabela que já existe — o
+banco do cliente ficaria sem `do_google` e a consulta quebraria na primeira
+visita depois do deploy. Entrou um bloco de `ALTER TABLE` idempotente no
+`db.js`.
+
+### Provas
+
+235 na suíte principal (eram 227). As novas cobrem: o crédito por cartão com as
+duas origens na mesma página, `do_google` como booleano de verdade (a armadilha
+de *type affinity* que já fez item desativado continuar no site), o selo com
+link e sem nota, e a ausência do selo sem os dois. **Seis sabotagens, seis
+pegas.**
+
+⚠ Uma prova nova falhou por herdar estado do grupo vizinho: o cache do Google
+ficava com nota "4,9" e o selo mostrava esse número, fazendo a prova de "sem
+nota" acusar defeito num código correto. **Prova declara o estado de que
+precisa, não herda o do vizinho.**
+
+### O que ficou de fora
+
+O texto da avaliação do Robinho vem **cortado na ficha** (o Google mostra "…
+Mais" e só carrega o resto por clique). O que está no site é o trecho visível,
+que termina em frase completa — mas vale conferir na ficha se ele continua.
+
+---
+
 ## 0.10.1 — 07/09/2026 — O `limit_req_zone` derrubava a virada de domínio
 
 Ao rodar o `criar-site.sh` para `alafcell.com.br`, o nginx recusou a

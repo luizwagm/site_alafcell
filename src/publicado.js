@@ -106,11 +106,14 @@ function montar() {
       const G = require("./google");
       if (G.configurado()) {
         const g = G.guardadas();
-        if (g && g.avaliacoes && g.avaliacoes.length) return g.avaliacoes.slice(0, 3);
+        /* Vindas da API, sao do Google por definicao — o site nao precisa
+           perguntar a ninguem. */
+        if (g && g.avaliacoes && g.avaliacoes.length)
+          return g.avaliacoes.slice(0, 3).map((a) => ({ ...a, do_google: 1 }));
         return [];
       }
       return Q.todos(
-        `SELECT autor, texto, quando FROM avaliacoes
+        `SELECT autor, texto, quando, do_google FROM avaliacoes
           WHERE ativo = 1 AND estrelas = 5 AND texto <> ''
           ORDER BY ordem, id`);
     })(),

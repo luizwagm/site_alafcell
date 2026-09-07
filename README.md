@@ -239,9 +239,9 @@ Todo o resto responde **404 de propósito** desde a 0.4.0 — inclusive `/loja/`
 npm test
 ```
 
-**279 provas em três suítes**, num banco temporário — nunca no banco do cliente.
+**291 provas em três suítes**, num banco temporário — nunca no banco do cliente.
 
-`testes/provar.cjs` (227) chama as funções direto. `testes/rotas.cjs` (36)
+`testes/provar.cjs` (235) chama as funções direto. `testes/rotas.cjs` (36)
 **sobe o servidor de verdade** numa porta própria e pede o que o buscador vai
 pedir: robots, sitemap, canonical, dados estruturados, 404.
 
@@ -254,7 +254,7 @@ falha com o site no ar**.
 
 Chamar função não cobre essa família inteira de erro.
 
-`testes/vhost.sh` (16) roda o `criar-site.sh` em **modo de ensaio** e olha o
+`testes/vhost.sh` (20) roda o `criar-site.sh` em **modo de ensaio** e olha o
 arquivo de configuração que saiu. O vhost é montado por heredoc, e heredoc
 quebra em silêncio: um `$` mal escapado não derruba o bash — faz o bloco não ser
 escrito. Foi assim que o redirecionamento do `www` sumiu. Cobrem o que dói
@@ -422,7 +422,7 @@ Passo a passo completo em [SUBIR.md](SUBIR.md).
 ## Estado
 
 Site público inteiro pronto e provado: 15 páginas, sem falha de contraste AA,
-sem rolagem horizontal de 320px a 1440px, 279 provas verdes em três suítes e as
+sem rolagem horizontal de 320px a 1440px, 291 provas verdes em três suítes e as
 sabotagens todas pegas. **Entrega automática por GitHub Actions** configurada
 (falta só a chave e os segredos, que são do dono do servidor). O **`/admin` está pronto** — todas as seções do site editáveis em
 telas organizadas, tela de acessos, rascunho com botão de publicar, editores de

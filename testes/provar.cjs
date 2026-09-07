@@ -797,19 +797,57 @@ ok("lista ausente não quebra a página", G.escolher(undefined).length, 0);
    ao lado de uma do Google, com o mesmo selo, faria passar por verificado o
    que não é. */
 const idAv = [];
-for (const [a, t, o] of [["ZZ Ana", "ZZ QA manual um", 1], ["ZZ Bia", "ZZ QA manual dois", 2]]) {
-  Q.roda("INSERT INTO avaliacoes (autor, texto, estrelas, ordem, ativo) VALUES (?,?,5,?,1)", a, t, o);
+/* A TERCEIRA COLUNA E A ORIGEM. Uma copiada da ficha do Google e uma que
+   chegou por outro caminho — as duas verdadeiras, e so uma pode se creditar
+   ao Google. */
+for (const [a, t, o, doG] of [
+  ["ZZ Ana", "ZZ QA manual um", 1, 1],
+  ["ZZ Bia", "ZZ QA manual dois", 2, 0],
+]) {
+  Q.roda("INSERT INTO avaliacoes (autor, texto, estrelas, ordem, ativo, do_google) VALUES (?,?,5,?,1,?)",
+    a, t, o, doG);
   idAv.push(Q.um("SELECT MAX(id) id FROM avaliacoes").id);
 }
 Pub.publicar("ZZ QA");
 const casaManual = Pag.home({ headers: {}, url: "/" });
-verdade("sem Google, valem as avaliações digitadas", casaManual.includes("ZZ QA manual um"));
-/* Chamar de "Avaliação no Google" o que foi digitado no painel é o site
-   afirmando ao visitante que aquele elogio está numa ficha pública e
-   verificável. Quem for conferir não acha — e leva junto a credibilidade do
-   resto da página. */
-ok("e o cartão NÃO se diz do Google", casaManual.includes("Avaliação no Google"), false);
-verdade("ele se diz o que é", casaManual.includes("Cliente da Alafcell"));
+verdade("sem a busca ligada, valem as avaliações digitadas", casaManual.includes("ZZ QA manual um"));
+
+/* O CRÉDITO É POR AVALIAÇÃO, e não da seção inteira. As duas estão na mesma
+   página: uma copiada da ficha do Google, outra que chegou por outro caminho.
+
+   Dar o selo do Google à segunda é o site afirmando ao visitante que aquele
+   elogio está numa ficha pública e verificável — quem for conferir não acha, e
+   leva junto a credibilidade do resto da página. */
+verdade("as duas aparecem", casaManual.includes("ZZ QA manual um") && casaManual.includes("ZZ QA manual dois"));
+verdade("uma se credita ao Google", casaManual.includes("Avaliação no Google"));
+verdade("e a outra, não", casaManual.includes("Cliente da Alafcell"));
+/* O que prova que o crédito é POR CARTÃO e não da seção: os dois textos
+   aparecem, cada um com o seu. */
+{
+  const trecho = (nome) => {
+    const i = casaManual.indexOf(nome);
+    return casaManual.slice(i, i + 900);
+  };
+  verdade("a do Google diz Google no cartão dela",
+    /Avaliação no Google/.test(trecho("ZZ QA manual um")));
+  verdade("e a outra diz Cliente no cartão dela",
+    /Cliente da Alafcell/.test(trecho("ZZ QA manual dois")));
+}
+
+/* `do_google` é SIM/NÃO no banco. Sem entrar na lista de booleanos do painel,
+   a tela manda "false" e o SQLite guarda o TEXTO — que é verdadeiro em toda
+   comparação, e a avaliação se creditaria ao Google mesmo desmarcada. É a
+   mesma armadilha de type affinity que já fez item desativado continuar no
+   site. */
+{
+  const id = Adm.gravar("avaliacoes", 0, {
+    autor: "ZZ Zed", texto: "ZZ QA origem falsa", estrelas: "5",
+    ativo: "0", do_google: "false",
+  }).id;
+  ok("`do_google: \"false\"` vira 0, e não o texto",
+     Q.um("SELECT do_google FROM avaliacoes WHERE id = ?", id).do_google, 0);
+  Q.roda("DELETE FROM avaliacoes WHERE id = ?", id);
+}
 
 /* Com o Google configurado E com resposta guardada, as manuais saem de cena. */
 ajuste("google.place_id", "ChIJzz_qa");
@@ -839,6 +877,29 @@ verdade("o cache é o que o site lê", !!(G.guardadas() || {}).avaliacoes);
 verdade("e ele sobrevive a uma configuração trocada",
   (() => { ajuste("google.chave_api", "zz-qa-outra");
            return !!(G.guardadas() || {}).avaliacoes; })());
+
+/* --- o selo aparece com o LINK, mesmo sem nota --- */
+/* PARTIR DO ZERO. O grupo acima deixa o cache do Google com nota "4,9" e o
+   `place_id` preenchido; sem limpar, `selo()` devolve a nota de la e a prova
+   de "sem nota" falharia apontando defeito no código, que está certo. */
+Q.roda("DELETE FROM google_cache");
+for (const c of ["google.place_id", "google.chave_api"]) ajuste(c, "");
+/* Nota é número, e número inventado numa página é o tipo de coisa que ninguém
+   confere e todo mundo repete. Sem ela, o selo vira o convite para olhar a
+   fonte — que é mais honesto e igualmente útil. */
+Adm.gravarTextos({ "google.nota": "", "google.total": "", "google.link": "https://maps.google.com/?cid=1" });
+Pub.publicar("ZZ QA");
+const semNota = Pag.home({ headers: {}, url: "/" });
+verdade("com link e sem nota, o selo aparece", /<a class="selo-google"/.test(semNota));
+verdade("dizendo só para conferir na fonte", semNota.includes("Ver as avaliações no Google"));
+ok("e sem inventar número", /<b><\/b>/.test(semNota), false);
+
+/* Sem link E sem nota não há o que mostrar: um selo do Google que não leva ao
+   Google é enfeite. */
+Adm.gravarTextos({ "google.link": "" });
+Pub.publicar("ZZ QA");
+ok("sem link e sem nota, não há selo",
+   /class="selo-google"/.test(Pag.home({ headers: {}, url: "/" })), false);
 
 /* Faxina */
 Q.roda("DELETE FROM google_cache");

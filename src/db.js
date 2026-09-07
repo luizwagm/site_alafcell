@@ -386,6 +386,12 @@ CREATE TABLE IF NOT EXISTS coletas (
     texto     TEXT NOT NULL DEFAULT '',
     estrelas  INTEGER NOT NULL DEFAULT 5,
     quando    TEXT NOT NULL DEFAULT '',
+    /* Veio da ficha do Google (copiada de la) ou chegou por outro caminho?
+       DECLARADO por quem cadastra, nao adivinhado: o credito "Avaliacao no
+       Google" e uma afirmacao verificavel — quem clicar no selo vai procurar.
+       Padrao 1 porque e o que a tela pede; texto que chegou por WhatsApp ou
+       formulario e desmarcado na hora de cadastrar. */
+    do_google INTEGER NOT NULL DEFAULT 1,
     ordem     INTEGER NOT NULL DEFAULT 0,
     ativo     INTEGER NOT NULL DEFAULT 1,
     criado    TEXT
@@ -497,6 +503,22 @@ function coluna(tabela, nome, definicao) {
 /* A foto de capa do serviço chegou na 0.3.0, com as imagens de banco. Quem já
    tinha o banco rodando ganha a coluna aqui, sem migração manual. */
 coluna("servicos", "foto", "TEXT NOT NULL DEFAULT ''");
+
+/* ==========================================================================
+   COLUNAS QUE NASCERAM DEPOIS
+
+   `CREATE TABLE IF NOT EXISTS` nao acrescenta coluna em tabela que ja existe:
+   o banco do cliente ficaria sem ela e toda consulta que a mencionasse
+   quebraria — em producao, na primeira visita depois do deploy.
+
+   Cada linha e idempotente: se a coluna ja esta la, o SQLite recusa e a gente
+   ignora. Nao ha "migracao pela metade" para acompanhar.
+   ========================================================================== */
+for (const alteracao of [
+  "ALTER TABLE avaliacoes ADD COLUMN do_google INTEGER NOT NULL DEFAULT 1",
+]) {
+  try { db.exec(alteracao); } catch { /* a coluna ja existe */ }
+}
 
 /* ==========================================================================
    CONSULTAS — camada fina, só para não espalhar SQL pelo projeto

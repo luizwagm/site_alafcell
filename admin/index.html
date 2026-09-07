@@ -441,6 +441,12 @@ body.tem-pendencia main{padding-bottom:6rem}
       <h2 style="font-size:1.05rem;margin:1.6rem 0 .8rem">Avaliações cadastradas à mão</h2>
       <p class="dica" style="margin-bottom:.8rem">Usadas <b>enquanto a busca do Google não
         estiver configurada</b>. Com ela ligada, estas ficam guardadas e não aparecem.</p>
+      <p class="dica" style="margin-bottom:.8rem">⚠ <b>"Copiada da nossa ficha do Google"</b>
+        decide o que o cartão diz no site: marcado, ele se credita como
+        <b>"Avaliação no Google"</b> — e quem clicar no selo vai procurar por ela lá.
+        Só marque o que você realmente copiou da ficha. Elogio que chegou por WhatsApp
+        ou no balcão é verdadeiro do mesmo jeito, mas <b>não está no Google</b>:
+        desmarque, e o cartão passa a dizer "Cliente da Alafcell".</p>
       <div id="lista-avaliacoes"></div>
     </section>
     <section class="painel" id="t-medicao">
@@ -826,6 +832,7 @@ const FORM = {
     ["texto", "O que a pessoa escreveu", "area"],
     ["estrelas", "Estrelas (1 a 5)", "numero"],
     ["quando", "Quando (ex.: há 2 meses)", "texto"],
+    ["do_google", "Copiada da nossa ficha do Google", "sim"],
     ["ordem", "Ordem", "numero"],
     ["ativo", "Pode aparecer no site", "sim"],
   ],
@@ -864,9 +871,17 @@ const ligado = (tabela, r) => (tabela === "posts" ? r.publicado : r.ativo);
 const marcaExtra = (tabela, r) => {
   if (tabela !== "avaliacoes") return "";
   const n = Number(r.estrelas) || 0;
-  return n === 5
+  const estrelas = n === 5
     ? '<span class="selo selo--on">5 estrelas</span>'
     : `<span class="selo selo--off">${n} estrela(s) — não aparece</span>`;
+  /* A ORIGEM aparece na lista, e não só dentro do formulário: é ela que decide
+     se o cartão vai dizer "Avaliação no Google" no site — uma afirmação que
+     qualquer visitante confere clicando no selo. Escondida atrás de um clique,
+     ninguém revisaria. */
+  const origem = Number(r.do_google) === 1
+    ? '<span class="selo selo--on">do Google</span>'
+    : '<span class="selo selo--off">outra origem</span>';
+  return estrelas + " " + origem;
 };
 
 function pintarLista(tabela) {
@@ -967,7 +982,7 @@ async function novo(tabela) {
     const base = tabela === "posts"
       ? { titulo: "Nova matéria", publicado: "0", data: new Date().toISOString().slice(0, 10) }
       : tabela === "avaliacoes"
-      ? { autor: "", texto: "", estrelas: "5", ativo: "0" }
+      ? { autor: "", texto: "", estrelas: "5", ativo: "0", do_google: "1" }
       : tabela === "faq"
       ? { pergunta: "", resposta: "", ativo: "0" }
       : { nome: "Novo", ativo: "0" };

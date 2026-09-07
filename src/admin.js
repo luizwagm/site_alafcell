@@ -61,7 +61,7 @@ const CAMPOS = {
   /* SEM `slug`: avaliação não tem página própria nem endereço. Acrescentar o
      campo só porque as outras tabelas têm faria o servidor gerar um slug que
      ninguém usa. */
-  avaliacoes: ["autor", "texto", "estrelas", "quando", "ordem", "ativo"],
+  avaliacoes: ["autor", "texto", "estrelas", "quando", "ordem", "ativo", "do_google"],
   faq: ["pergunta", "resposta", "ordem", "ativo"],
 };
 
@@ -95,7 +95,10 @@ const CAMPOS_RICOS = {
 /* Colunas que são SIM/NÃO no banco (0 ou 1). A tela manda `true`/`false`, e o
    SQLite guardaria o texto "true" — que é verdadeiro em toda comparação e faz
    um serviço desativado continuar aparecendo no site. */
-const BOOLEANOS = new Set(["ativo", "destaque", "popular", "publicado"]);
+/* `do_google` entra aqui: sem isso a tela manda "true" e o SQLite guarda o
+   TEXTO, que e verdadeiro em toda comparacao — a mesma armadilha de type
+   affinity que ja fez item desativado continuar no site. */
+const BOOLEANOS = new Set(["ativo", "destaque", "popular", "publicado", "do_google"]);
 /* Colunas numéricas: `""` num campo inteiro vira 0 e não string vazia. */
 const NUMEROS = new Set(["prazo_horas", "garantia_dias", "ordem", "marca_id", "ano", "estrelas"]);
 

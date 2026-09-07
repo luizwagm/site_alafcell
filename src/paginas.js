@@ -441,8 +441,12 @@ function home(req) {
 
      Com o Google ligado, o crédito é verdadeiro e fica. Sem ele, o cartão diz
      apenas que é de um cliente — que é o que de fato se sabe. */
-  const daFonteGoogle = seloG.doGoogle;
-  const creditoFonte = daFonteGoogle ? "Avaliação no Google" : "Cliente da Alafcell";
+  /* O credito e POR AVALIACAO, e nao da secao inteira: uma copiada da ficha do
+     Google ao lado de uma que chegou por WhatsApp sao coisas diferentes, e dar
+     o mesmo selo as duas e o que faz passar por verificado o que nao e.
+
+     Quem cadastra declara a origem no painel. O site nao adivinha. */
+  const credito = (a) => (Number(a.do_google) === 1 ? "Avaliação no Google" : "Cliente da Alafcell");
 
   /* ================================================================
      PERGUNTAS FREQUENTES
@@ -488,7 +492,7 @@ function home(req) {
     <header class="secao__cabeca secao__cabeca--centro">
       <p class="rotulo">${engrenagem("", 12)}${txt("google.rotulo", "O que dizem")}</p>
       <h2 class="titulo">${txt("google.titulo", "Quem já passou por aqui <em>recomenda</em>")}</h2>
-      ${notaGoogle ? `
+      ${(notaGoogle || linkGoogle) ? `
       <${linkGoogle ? `a class="selo-google" href="${esc(linkGoogle)}" target="_blank" rel="noopener"`
                     : "span class=\"selo-google\""}>
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -498,8 +502,12 @@ function home(req) {
           <path fill="#EA4335" d="M12 5.4c1.6 0 3 .5 4.1 1.6l3.1-3.1A11 11 0 0 0 2.3 7.3L6 10.1c.9-2.6 3.2-4.7 6-4.7Z"/>
         </svg>
         <span class="selo-google__estrelas" aria-hidden="true">★★★★★</span>
-        <span class="selo-google__nota"><b>${esc(notaGoogle)}</b>${
-          totalGoogle ? ` · ${esc(totalGoogle)} avaliações no Google` : " no Google"}</span>
+        <span class="selo-google__nota">${
+          notaGoogle && totalGoogle ? `<b>${esc(notaGoogle)}</b> · ${esc(totalGoogle)} avaliações no Google`
+          : notaGoogle ? `<b>${esc(notaGoogle)}</b> no Google`
+          /* Sem nota preenchida o selo NAO inventa numero: vira so o convite
+             para conferir na fonte. E o mesmo desenho do Forms Fitness. */
+          : "Ver as avaliações no Google"}</span>
       </${linkGoogle ? "a" : "span"}>` : ""}
     </header>
     <div class="grade grade--3">
@@ -511,7 +519,7 @@ function home(req) {
           <span class="avaliacao__inicial" aria-hidden="true">${esc((a.autor || "G").trim().charAt(0).toUpperCase())}</span>
           <span>
             <span class="avaliacao__nome">${esc(a.autor || "Cliente")}</span><br>
-            <span class="avaliacao__fonte">${creditoFonte}${a.quando ? ` · ${esc(a.quando)}` : ""}</span>
+            <span class="avaliacao__fonte">${credito(a)}${a.quando ? ` · ${esc(a.quando)}` : ""}</span>
           </span>
         </figcaption>
       </figure>`).join("")}
