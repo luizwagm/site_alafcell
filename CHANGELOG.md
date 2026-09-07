@@ -4,6 +4,42 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.11.2 — 07/09/2026 — O workflow chamava o deploy com `sudo`
+
+```
+Não rode o deploy como root (nem com sudo).
+Error: Process completed with exit code 1.
+```
+
+Copiei o passo de deploy do **LA Sentinela**, onde o script precisa de root. O
+do Alafcell é o oposto: ele **recusa root de propósito**, porque com `sudo` o
+`npm ci` faz o root virar dono de `node_modules/` — e a entrega *seguinte*,
+feita como `deploy`, não consegue mais escrever ali. O erro aparece no deploy de
+amanhã, longe da causa.
+
+Ele roda como o dono do código e pede sudo numa linha só: o `systemctl restart`.
+
+**O sudoers que eu documentei também estava errado.** Não é o `deploy.sh` que
+precisa de `NOPASSWD`, é o reinício do serviço:
+
+```
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart alafcell.service, /bin/systemctl restart alafcell.service
+```
+
+Os dois caminhos porque o `sudo` casa pelo caminho **absoluto**, e ele varia
+entre distribuições — um `which systemctl` apontando para o outro faz a regra
+não valer, sem dizer por quê.
+
+O workflow ganhou um passo que **confere esse sudo antes de mexer no servidor**:
+sem ele, o deploy sobe o código e não reinicia o serviço — a pior metade de uma
+entrega, porque parece que deu certo.
+
+E o de testes ganhou uma conferência para a regressão não voltar: se alguém
+escrever `sudo …/deploy.sh` no workflow de novo, a bateria falha antes de
+qualquer entrega. Provada sabotando o arquivo.
+
+---
+
 ## 0.11.1 — 07/09/2026 — TODA ENTREGA APAGAVA O PAINEL DO CLIENTE
 
 O defeito mais caro encontrado até aqui, e ele estava escondido atrás de um

@@ -120,23 +120,35 @@ A primeira impressão digital tem de aparecer na lista de baixo.
 
 ---
 
-## Passo 3 — Deixar o deploy rodar como root, só ele
+## Passo 3 — Deixar só o *reinício do serviço* passar sem senha
+
+> ⚠️ **O `deploy.sh` NÃO roda como root** — ele recusa, de propósito. Com
+> `sudo`, o `npm ci` faz o root virar dono de `node_modules/`, e a entrega
+> **seguinte**, feita como `deploy`, não consegue mais escrever ali: o erro
+> aparece no deploy de amanhã, longe da causa.
+>
+> Ele roda como o dono do código e pede sudo numa linha só — o `systemctl
+> restart`. É só isso que entra no sudoers.
 
 ```bash
-echo 'deploy ALL=(root) NOPASSWD: /var/www/projetos/Alafcell-Assistec/deploy.sh' | sudo tee /etc/sudoers.d/alafcell && sudo chmod 440 /etc/sudoers.d/alafcell && sudo visudo -c
+echo 'deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart alafcell.service, /bin/systemctl restart alafcell.service' | sudo tee /etc/sudoers.d/alafcell && sudo chmod 440 /etc/sudoers.d/alafcell && sudo visudo -c
 ```
 
-`NOPASSWD` para **um comando**, nunca para `ALL` — senão quem tomar a sessão do
+Os **dois caminhos** porque o `sudo` casa pelo caminho absoluto, e ele varia
+entre distribuições — um `which systemctl` que aponte para o outro faz a regra
+não valer, sem dizer por quê.
+
+`NOPASSWD` para **um comando**, nunca para `ALL`: senão quem tomar a sessão do
 `deploy` vira root de graça.
 
 Teste antes de seguir:
 
 ```bash
-sudo -n /var/www/projetos/Alafcell-Assistec/deploy.sh --help 2>&1 | head -3
+sudo -n systemctl is-active alafcell.service
 ```
 
-Se pedir senha, o arquivo do sudoers não está valendo (confira o caminho, que
-tem de ser **exatamente** o mesmo).
+Se pedir senha, a regra não está valendo. Confira o caminho com
+`which systemctl` e ajuste o arquivo.
 
 ---
 
@@ -202,10 +214,20 @@ O workflow também detecta o caso de você ter colado a **deploy key do GitHub**
 no `SSH_KEY`: ele pergunta ao próprio GitHub se a chave é dele e avisa. São
 sentidos opostos (ver a tabela lá em cima).
 
+### `Não rode o deploy como root (nem com sudo)`
+
+O comando está chamando `sudo ./deploy.sh`. Ele roda **sem** sudo — ver o
+passo 3. Se alguém já rodou com sudo, devolva a posse antes de tentar de novo:
+
+```bash
+sudo chown -R deploy:deploy /var/www/projetos/Alafcell-Assistec
+```
+
 ### `sudo: a password is required`
 
-O arquivo em `/etc/sudoers.d/alafcell` não está valendo. O caminho ali tem de
-ser **idêntico** ao que o workflow chama, incluindo maiúsculas.
+A regra em `/etc/sudoers.d/alafcell` não está valendo. O `sudo` casa pelo
+caminho **absoluto** do comando: confira com `which systemctl` e veja se ele
+está no arquivo.
 
 ### `fatal: could not read Username for 'https://github.com'`
 

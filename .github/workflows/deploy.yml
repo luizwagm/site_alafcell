@@ -12,10 +12,16 @@
 #                     ela o runner aceita a chave do servidor sem conferir)
 #    SSH_PORT         só se o SSH não estiver na 22
 #
-#  NO SERVIDOR, o usuário do deploy precisa rodar o script como root SEM senha
-#  — e SÓ esse script. Em /etc/sudoers.d/alafcell:
-#      deploy ALL=(root) NOPASSWD: /var/www/projetos/Alafcell-Assistec/deploy.sh
-#  `NOPASSWD: ALL` seria dar root de graça a quem tomasse a sessão do deploy.
+#  NO SERVIDOR: o `deploy.sh` roda como o usuário `deploy`, NÃO como root — ele
+#  recusa root de propósito (com sudo, o `npm ci` faz o root virar dono de
+#  node_modules/ e a entrega seguinte não consegue mais escrever ali).
+#
+#  O único passo que precisa de raiz é reiniciar o serviço, e é só isso que
+#  entra no sudoers. Em /etc/sudoers.d/alafcell:
+#      deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart alafcell.service, /bin/systemctl restart alafcell.service
+#  Os dois caminhos porque o `sudo` casa pelo caminho ABSOLUTO, e ele varia
+#  entre distribuições. `NOPASSWD: ALL` seria dar root de graça a quem tomasse
+#  a sessão do deploy.
 #
 #  ARMADILHA JÁ PAGA NO PARQUE: se você prender a chave a um `command=` no
 #  authorized_keys, ela IGNORA o comando pedido e roda o dela — testar a
@@ -143,6 +149,34 @@ jobs:
             exit 1
           fi
 
+      # O `sudo` do `systemctl restart` tem de passar SEM SENHA, senão o deploy
+      # sobe o código e não reinicia o serviço — a pior metade de uma entrega.
+      # Falhar aqui, dizendo o que falta, é melhor que descobrir isso no meio.
+      - name: Conferir o sudo do serviço
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USER }}
+          PORTA: ${{ secrets.SSH_PORT }}
+        run: |
+          if ssh -i ~/.ssh/deploy -p "${PORTA:-22}" -o BatchMode=yes "$USUARIO@$HOST" \
+               'sudo -n systemctl is-active alafcell.service >/dev/null 2>&1 || sudo -n true' 2>/dev/null; then
+            echo "o sudo do systemctl passa sem senha"
+          else
+            echo "::error::o usuário $USUARIO não consegue reiniciar o serviço sem senha. No servidor: echo 'deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart alafcell.service, /bin/systemctl restart alafcell.service' | sudo tee /etc/sudoers.d/alafcell && sudo chmod 440 /etc/sudoers.d/alafcell && sudo visudo -c"
+            exit 1
+          fi
+
+      # ====================================================================
+      #  SEM `sudo`, DE PROPÓSITO
+      #
+      #  O `deploy.sh` do Alafcell RECUSA rodar como root, e está certo: com
+      #  `sudo`, o `npm ci` faz o root virar dono de `node_modules/` e a
+      #  entrega SEGUINTE — feita como `deploy` — não consegue mais escrever
+      #  ali. O erro aparece no deploy de amanhã, longe da causa.
+      #
+      #  Ele roda como o dono do código e pede sudo numa linha só: o
+      #  `systemctl restart`, conferido no passo acima.
+      # ====================================================================
       - name: Deploy
         env:
           HOST: ${{ secrets.SSH_HOST }}
@@ -153,7 +187,7 @@ jobs:
           ssh -i ~/.ssh/deploy -p "${PORTA:-22}" \
               -o BatchMode=yes -o ConnectTimeout=20 \
               "$USUARIO@$HOST" \
-              'sudo /var/www/projetos/Alafcell-Assistec/deploy.sh' 2>&1 | tee saida-deploy.txt
+              '/var/www/projetos/Alafcell-Assistec/deploy.sh' 2>&1 | tee saida-deploy.txt
 
       # ====================================================================
       #  O PASSO QUE PEGA "O SCRIPT RODOU MAS O SERVIÇO NÃO REINICIOU"

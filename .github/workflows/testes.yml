@@ -110,6 +110,19 @@ jobs:
       - name: Provas do gerador de vhost
         run: bash testes/vhost.sh
 
+      # O `deploy.sh` recusa root de propósito: com `sudo`, o `npm ci` faz o
+      # root virar dono de node_modules/ e a entrega SEGUINTE falha, longe da
+      # causa. Chamá-lo com sudo no workflow derruba toda entrega — e foi o que
+      # aconteceu na primeira execução, por eu ter copiado o passo de outro
+      # projeto do parque, onde o deploy PRECISA de root.
+      - name: O deploy não é chamado como root
+        run: |
+          if grep -nE "sudo +[^ ]*deploy\.sh" .github/workflows/deploy.yml; then
+            echo "::error::o workflow de deploy chama o script com sudo, e ele recusa root — a entrega falha sempre"
+            exit 1
+          fi
+          echo "o deploy é chamado como o dono do código"
+
       # ------------------------------------------------------------------
       #  As suítes
       # ------------------------------------------------------------------
