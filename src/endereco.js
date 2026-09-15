@@ -52,6 +52,32 @@ const INDEXAVEL = forcado === "sim" ? true
   : !DE_TRABALHO;
 
 /* ==========================================================================
+   A CÓPIA DE TRABALHO DE UM SITE QUE JÁ ESTÁ NO AR (0.13.1)
+
+   A regra de cima olha o ENDEREÇO DO SITE (o `ALAFCELL_SITE`). Ela protegia o
+   site enquanto ele morava no subdomínio; no dia da virada ele passou a
+   `alafcell.com.br` — e o vhost de `alafcell.projetos.luizaugust.me` ficou de
+   pé, apontando para o MESMO processo. Resultado, conferido de fora em
+   15/09/2026: a cópia respondia 200, sem `noindex`, com o robots.txt do
+   domínio real (inclusive a linha `Sitemap:`). Só o canonical segurava.
+
+   A decisão agora é POR PEDIDO, pelo `Host` que o nginx repassa
+   (`proxy_set_header Host $host`): quem chega pelo subdomínio de trabalho
+   recebe `noindex` em toda resposta, mesmo com o site indexável.
+
+   O Host é texto de quem pede, mas aqui isso não abre nada: forjá-lo só muda
+   a resposta de quem forjou (não há cache compartilhado), e o nginx escolhe o
+   vhost pelo mesmo Host — no domínio real, ele é o do domínio real.
+   ========================================================================== */
+const TRABALHO = /(^|\.)projetos\.luizaugust\.me$/i;
+function copiaDeTrabalho(req) {
+  if (!INDEXAVEL) return false;          /* o site inteiro já está fora do índice */
+  const h = String((req && req.headers && req.headers.host) || "")
+    .trim().toLowerCase().replace(/:\d+$/, "");
+  return !!h && h !== HOST.toLowerCase() && TRABALHO.test(h);
+}
+
+/* ==========================================================================
    O robots.txt de cada caso
 
    No endereço de trabalho é `Disallow: /` e SEM linha de Sitemap. Publicar o
@@ -76,7 +102,7 @@ const INDEXAVEL = forcado === "sim" ? true
    instrução morta num robots.txt é a pista falsa que o próximo a ler vai
    seguir procurando uma loja que não existe mais.
    ========================================================================== */
-function robots() {
+function robots(req = null) {
   if (!INDEXAVEL) {
     return `# Endereço de trabalho — este site não é para ser indexado.
 # O endereço público é outro. Ver src/endereco.js.
@@ -111,6 +137,23 @@ Disallow: /
   const PROIBIDO = ["/admin/", "/restrito/", "/orcamento/whatsapp", "/orcamento?"];
   const regras = PROIBIDO.map((c) => `Disallow: ${c}`).join("\n");
 
+  /* A CÓPIA DE TRABALHO (0.13.1): sem `Sitemap:` — o sitemap é do domínio
+     real, e anunciá-lo daqui é convidar o robô a tratar os dois como um só.
+
+     E SEM `Disallow: /`, ao contrário do endereço de trabalho de um site que
+     ainda não subiu. Lá ninguém conhece as páginas; aqui o robô pode já tê-las
+     achado (link de aprovação no WhatsApp, o repositório público). Página
+     bloqueada no robots.txt não é LIDA — e o `noindex` dela nunca é visto: ela
+     pode continuar no índice só pelo endereço. Para sair, ele precisa entrar
+     e ler o `noindex`. */
+  if (req && copiaDeTrabalho(req)) {
+    return `# Cópia de trabalho de ${SITE} — este não é o endereço do site.
+# Toda página daqui responde com noindex; o robô pode lê-las para ver isso.
+User-agent: *
+${regras}
+`;
+  }
+
   const IA = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot",
     "Claude-User", "PerplexityBot", "Google-Extended", "Applebot-Extended",
     "CCBot", "meta-externalagent"];
@@ -138,4 +181,10 @@ Sitemap: ${SITE}/sitemap.xml
    chegou por um link — e link de aprovação circula no WhatsApp o tempo todo. */
 const CABECALHO_ROBOS = INDEXAVEL ? null : "noindex, nofollow, noarchive";
 
-module.exports = { SITE, HOST, INDEXAVEL, DE_TRABALHO, robots, CABECALHO_ROBOS };
+/* O mesmo cabeçalho, decidido por pedido: o do site inteiro quando ele é de
+   trabalho, e o da cópia de trabalho quando o pedido chegou por ela. */
+const robosDe = (req) => CABECALHO_ROBOS
+  || (copiaDeTrabalho(req) ? "noindex, nofollow, noarchive" : null);
+
+module.exports = { SITE, HOST, INDEXAVEL, DE_TRABALHO, robots, CABECALHO_ROBOS,
+  copiaDeTrabalho, robosDe };

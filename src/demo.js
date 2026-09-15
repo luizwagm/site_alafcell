@@ -20,8 +20,9 @@
 
    1. Só entra com a tabela VAZIA. Reiniciar o serviço nunca sobrescreve o que
       a loja cadastrou.
-   2. Dá para não semear nada: `ALAFCELL_DEMO=nao` desliga este arquivo. É o
-      que se usa na subida definitiva, para o site começar limpo.
+   2. `ALAFCELL_DEMO=nao` (no `.env` do serviço) desliga este arquivo E TIRA o
+      que ele semeou e continua intocado — ver `limpar()` no fim. É o que se
+      usa quando o site vai para o domínio de verdade.
 
    A ordem de serviço de exemplo (`DEMO-01`) existe para a tela de
    acompanhamento poder ser demonstrada. Ela também sai com `ALAFCELL_DEMO=nao`.
@@ -375,14 +376,119 @@ function fotos() {
   }
 }
 
+/* ==========================================================================
+   A DEMONSTRAÇÃO SAI DE VERDADE (0.13.1)
+
+   Até a 0.13.0, `ALAFCELL_DEMO=nao` só impedia de SEMEAR — e o cabeçalho deste
+   arquivo, o server.js e o SUBIR.md prometiam que o material "sai inteiro". Num
+   banco que já tinha a demonstração (o de produção), desligar a variável
+   mudava só o aviso do `/saude`: as três matérias continuavam no blog, com
+   exemplo de preço dentro ("se a tela custa R$ 450"), e a chave Pix de
+   demonstração continuava no cadastro. O aviso dizendo "limpo" com o site sujo
+   é pior que o aviso dizendo "sujo".
+
+   O QUE SAI É SÓ O QUE CONTINUA EXATAMENTE COMO NÓS SEMEAMOS. Matéria que o
+   dono editou, produto com outro nome ou preço, ordem com outro cliente: tudo
+   isso é dele agora, e fica. Cada linha é conferida contra o texto de
+   semeadura acima (que não mudou desde o primeiro commit) e apagada PELO ID.
+
+   E NÃO BASTA APAGAR DO BANCO: o site lê o instantâneo publicado. A matéria
+   sai do ar por `Pub.republicar()`, que parte do que já está publicado — e não
+   do rascunho, que pode ter alteração do dono esperando o botão dele.
+
+   Roda a cada subida e a cada entrega. Na segunda vez não acha nada, e não
+   escreve nada.
+   ========================================================================== */
+function intocado(p, [, titulo, resumo, corpo]) {
+  return !!p && p.titulo === titulo && p.resumo === resumo && p.corpo === corpo;
+}
+const semeadaIntocada = (p) => {
+  const s = POSTS.find(([slug]) => slug === p.slug);
+  return !!s && intocado(p, s);
+};
+
+function limpar() {
+  const tirado = { materias: 0, precos: 0, produtos: 0, ordem: 0, pix: false, publicou: false };
+
+  /* ---------------------------------------------------------- matérias */
+  for (const s of POSTS) {
+    const p = Q.um("SELECT id, slug, titulo, resumo, corpo FROM posts WHERE slug = ?", s[0]);
+    if (intocado(p, s)) { Q.roda("DELETE FROM posts WHERE id = ?", p.id); tirado.materias++; }
+  }
+
+  /* ------------------------------------------------------------ preços */
+  /* O painel não edita preço desde a 0.4.0; mesmo assim, só sai a linha com
+     o valor exato da semeadura. */
+  const servico = {};
+  for (const s of Q.todos("SELECT id, slug FROM servicos")) servico[s.slug] = s.id;
+  for (const [slugModelo, valores] of Object.entries(PRECOS)) {
+    const m = Q.um("SELECT id FROM modelos WHERE slug = ?", slugModelo);
+    if (!m) continue;
+    valores.forEach((v, i) => {
+      const sid = servico[ORDEM_SERVICOS[i]];
+      if (!sid || !(v > 0)) return;
+      tirado.precos += Q.roda(
+        "DELETE FROM precos WHERE modelo_id = ? AND servico_id = ? AND preco = ?",
+        m.id, sid, centavos(v)).changes;
+    });
+  }
+
+  /* ---------------------------------------------------------- produtos */
+  /* Produto que aparece num pedido fica: o pedido é registro de venda, e a
+     chave estrangeira recusaria a remoção de qualquer jeito. */
+  for (const [, , , nome, , preco] of PRODUTOS) {
+    const pr = Q.um("SELECT id FROM produtos WHERE slug = ? AND nome = ? AND preco = ?",
+      slug(nome), nome, centavos(preco));
+    if (!pr || Q.um("SELECT 1 FROM pedido_itens WHERE produto_id = ?", pr.id)) continue;
+    Q.roda("DELETE FROM produtos WHERE id = ?", pr.id);    /* as fotos vão em cascata */
+    tirado.produtos++;
+  }
+
+  /* ------------------------------------------------- a ordem de exemplo */
+  tirado.ordem = Q.roda("DELETE FROM ordens WHERE codigo = 'DEMO-01' AND cliente = ?",
+    "Cliente de demonstração").changes;
+
+  /* --------------------------------------------------------- chave Pix */
+  /* Sai só a de demonstração. A loja virtual está desligada desde a 0.4.0,
+     então sem chave nenhuma o site não oferece Pix em lugar nenhum — e é
+     melhor campo vazio do que um número que não recebe dinheiro. */
+  if (txtDoRascunho("pagamento.pix_chave") === CHAVE_DEMO) {
+    ajuste("pagamento.pix_chave", "");
+    tirado.pix = true;
+  }
+
+  /* ------------------------------------------------------ o que está no ar */
+  const Pub = require("./publicado");
+  tirado.publicou = !!Pub.republicar((d) => {
+    /* Sai do ar a matéria intocada que JÁ SAIU DO BANCO. A que o dono editou e
+       ainda não publicou continua no banco — e a versão dela no ar (ainda a
+       nossa) fica até ele publicar a dele; sumir com ela no meio seria apagar
+       do site uma matéria que ele está justamente trabalhando. */
+    d.posts = (d.posts || []).filter((p) =>
+      !(semeadaIntocada(p) && !Q.um("SELECT 1 FROM posts WHERE id = ?", p.id)));
+    if (d.textos && d.textos["pagamento.pix_chave"] === CHAVE_DEMO) d.textos["pagamento.pix_chave"] = "";
+    d.precos = Q.todos(
+      `SELECT servico_id, MIN(preco) AS minimo FROM precos
+        WHERE ativo = 1 AND preco > 0 GROUP BY servico_id`);
+  }, "limpeza da demonstração");
+
+  return tirado;
+}
+
+/* O valor no RASCUNHO (a tabela), e não no publicado: `txt()` lê o
+   instantâneo, e a limpeza precisa saber o que está gravado no cadastro. */
+const txtDoRascunho = (chave) =>
+  (Q.um("SELECT valor FROM config WHERE chave = ?", chave) || {}).valor || "";
+
 function semear() {
-  if (!LIGADO) return;
+  if (!LIGADO) return limpar();
   pagamento();
   precos();
   produtos();
   posts();
   ordemExemplo();
   fotos();
+  return null;
 }
 
-module.exports = { semear, LIGADO, CHAVE_DEMO };
+module.exports = { semear, limpar, LIGADO, CHAVE_DEMO };

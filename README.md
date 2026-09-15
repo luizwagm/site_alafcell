@@ -176,7 +176,7 @@ reais da loja e dos produtos antes de divulgar o endereço.
 | `ALAFCELL_SITE` | domínio público (canonical, JSON-LD, sitemap) | `https://alafcell.projetos.luizaugust.me` |
 | `ALAFCELL_INDEXAVEL` | força `sim`/`nao` no dia da virada de domínio | automático |
 | `ALAFCELL_DB` | caminho do banco | `data/alafcell.db` |
-| `ALAFCELL_DEMO` | `nao` desliga todo o conteúdo de demonstração | ligado |
+| `ALAFCELL_DEMO` | `nao` desliga o conteúdo de demonstração e tira o que dele continua intocado (no servidor, no `.env`) | ligado |
 
 Qualquer endereço em `.projetos.luizaugust.me` é **endereço de trabalho** e
 sai automaticamente fora do índice do Google — no `robots.txt`, na etiqueta
@@ -219,6 +219,15 @@ Para subir limpo:
 ```bash
 ALAFCELL_DEMO=nao npm start
 ```
+
+No servidor, a variável vai no **`.env`** do site, e não na unidade do
+systemd: a entrega roda `ferramentas/semear.cjs` num shell comum, que lê o
+`.env` e não enxerga a unidade.
+
+Desde a 0.13.1, `ALAFCELL_DEMO=nao` também **tira** o que a demonstração
+semeou e continua intocado: as matérias, os preços, os produtos, a ordem
+DEMO-01 e a chave Pix de exemplo, inclusive do que está publicado. O que o
+dono editou fica.
 
 Para demonstrar o acompanhamento de conserto, use o código **DEMO-01** com o
 telefone **0000**.

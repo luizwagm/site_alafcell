@@ -9,7 +9,7 @@
 const { Q, txt } = require("./db");
 const Medicao = require("./medicao");
 const Pub = require("./publicado");
-const { SITE, CABECALHO_ROBOS } = require("./endereco");
+const { SITE, robosDe } = require("./endereco");
 const { emLinhas } = require("./html-seguro");
 
 const esc = (s) => String(s == null ? "" : s)
@@ -305,6 +305,9 @@ function pagina({ titulo, descricao, corpo, atual = "", canonical = "/",
      esta é a segunda tranca, e não custa nada: < é JSON válido e o
      buscador lê igual. */
   const dados = jsonld ? JSON.stringify(jsonld).replace(/</g, "\\u003c") : "";
+  /* Por pedido, e não só pelo endereço do site: a cópia de trabalho de um site
+     que já está no ar sai do índice também (0.13.1, ver src/endereco.js). */
+  const robos = robosDe(req);
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -327,10 +330,10 @@ function pagina({ titulo, descricao, corpo, atual = "", canonical = "/",
 <title>${esc(tit)}</title>
 <meta name="description" content="${esc(descricao || "")}">
 <link rel="canonical" href="${SITE}${canonical}">
-${CABECALHO_ROBOS ? `<!-- Endereço de TRABALHO: fora do índice. A etiqueta acompanha o cabeçalho
+${robos ? `<!-- Endereço de TRABALHO: fora do índice. A etiqueta acompanha o cabeçalho
      X-Robots-Tag, porque link de aprovação circula no WhatsApp e nem todo robô
      lê o robots.txt antes de seguir um link. -->
-<meta name="robots" content="${CABECALHO_ROBOS}">` : ""}
+<meta name="robots" content="${robos}">` : ""}
 <meta name="theme-color" content="#0B0C0E">
 <meta name="color-scheme" content="dark">
 

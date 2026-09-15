@@ -46,9 +46,12 @@ const ok = (o, obtido, esperado) => {
 };
 const verdade = (o, v) => ok(o, !!v, true);
 
-function pedir(caminho) {
+function pedir(caminho, host = null) {
   return new Promise((resolve, reject) => {
-    const req = http.get({ host: "127.0.0.1", port: PORTA, path: caminho }, (res) => {
+    /* `host`: o nome que o nginx repassaria (`proxy_set_header Host $host`).
+       É assim que a prova chega "pela cópia de trabalho" sem sair da máquina. */
+    const req = http.get({ host: "127.0.0.1", port: PORTA, path: caminho,
+      headers: host ? { Host: host } : {} }, (res) => {
       let corpo = "";
       res.setEncoding("utf8");
       res.on("data", (p) => { corpo += p; });
@@ -329,6 +332,47 @@ async function esperarSubir(tentativas = 60) {
       `], { cwd: RAIZ, encoding: "utf8" });
       ok("no endereço de trabalho o site não é indexável",
          (r.stdout || "").trim(), "TRABALHO");
+    }
+
+    /* ------------------------------- a demonstração desligada, vista de fora */
+    /* O servidor desta prova sobe com ALAFCELL_DEMO=nao. Com a chave Pix
+       vazia (a loja está desligada), o aviso de Pix de demonstração não pode
+       acusar — aviso eterno ensina a ignorar o aviso. */
+    ok("com a demonstração desligada, a /saude não acusa nada",
+      [(j || {}).demo, (j || {}).pixDemo], [false, false]);
+
+    /* ------------------------------------------------ a cópia de trabalho */
+    /* O MESMO processo atende alafcell.com.br e alafcell.projetos.luizaugust.me
+       (dois vhosts, uma porta). Até a 0.13.0 a cópia respondia como o site
+       real: 200, sem noindex, com a linha Sitemap do domínio. */
+    {
+      const COPIA = "alafcell.projetos.luizaugust.me";
+      const casaC = await pedir("/", COPIA);
+      verdade("pela cópia, a página sai com X-Robots-Tag noindex",
+        /noindex/.test(casaC.cabecalhos["x-robots-tag"] || ""));
+      verdade("e com a etiqueta robots noindex", /<meta name="robots" content="noindex/.test(casaC.corpo));
+      verdade("e o canonical continua apontando o domínio real",
+        casaC.corpo.includes('<link rel="canonical" href="https://alafcell.com.br/">'));
+      const estC = await pedir("/assets/css/estilo.css", COPIA);
+      verdade("até o CSS sai com noindex", /noindex/.test(estC.cabecalhos["x-robots-tag"] || ""));
+      const redC = await pedir("/consertos", COPIA);
+      verdade("e o redirecionamento também", /noindex/.test(redC.cabecalhos["x-robots-tag"] || ""));
+      const robC = await pedir("/robots.txt", COPIA);
+      ok("o robots da cópia não anuncia o sitemap do domínio", /Sitemap:/.test(robC.corpo), false);
+      /* Página bloqueada no robots não é lida — e o noindex dela nunca é
+         visto. Para sair do índice, o robô precisa entrar. */
+      ok("e não bloqueia a leitura (o noindex precisa ser visto)", /^Disallow: \/$/m.test(robC.corpo), false);
+      verdade("mas continua fechando o painel", robC.corpo.includes("Disallow: /admin/"));
+      ok("o sitemap pela cópia sai vazio", /<loc>/.test((await pedir("/sitemap.xml", COPIA)).corpo), false);
+      ok("e o llms.txt não existe por ela", (await pedir("/llms.txt", COPIA)).codigo, 404);
+
+      /* O domínio real continua limpo — e um domínio que só CONTÉM o texto
+         não passa por subdomínio nosso. */
+      const real = await pedir("/", "alafcell.com.br");
+      ok("pelo domínio real, nenhum noindex",
+        [real.cabecalhos["x-robots-tag"] || "", /noindex/.test(real.corpo)], ["", false]);
+      ok("nem por um domínio alheio que contém o texto",
+        (await pedir("/", "alafcell.projetos.luizaugust.me.br")).cabecalhos["x-robots-tag"] || "", "");
     }
 
     /* ----------------------------------------------------------------- 404 */

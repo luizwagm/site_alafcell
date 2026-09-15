@@ -62,9 +62,11 @@ const RAIZ = __dirname;
    sobrescreve o que já existe — ver src/conteudo-inicial.js. */
 Inicial.semear();
 /* Material de apresentação: preços de referência, produtos, blog e uma ordem de
-   exemplo. Só entra com as tabelas vazias, e sai inteiro com ALAFCELL_DEMO=nao.
-   Ver src/demo.js — nada ali é preço real da loja. */
-Demo.semear();
+   exemplo. Só entra com as tabelas vazias. Com ALAFCELL_DEMO=nao ele SAI — o
+   que continua exatamente como foi semeado é apagado e tirado do ar (0.13.1;
+   até a 0.13.0 a variável só parava de semear, e o que já estava no banco
+   ficava). Ver src/demo.js — nada ali é preço real da loja. */
+const LIMPEZA = Demo.semear();
 Painel.limparSessoes();
 
 /* ------------------------------------------------------------ tipos MIME */
@@ -250,6 +252,13 @@ const servidor = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || Endereco.HOST}`);
   const p = decodeURIComponent(url.pathname);
   const q = Object.fromEntries(url.searchParams);
+
+  /* A CÓPIA DE TRABALHO (0.13.1): quem chega pelo subdomínio .projetos de um
+     site que já está no domínio de verdade recebe `noindex` em TODA resposta —
+     página, imagem, redirecionamento e 404. Aqui no começo, e não em cada
+     rota, para nenhuma escapar. Ver `copiaDeTrabalho` em src/endereco.js. */
+  const robos = Endereco.robosDe(req);
+  if (robos) res.setHeader("X-Robots-Tag", robos);
 
   /* Metadados de repositório nunca saem pela web. */
   if (/\/\.(git|env)/.test(p)) return responder(res, 404, "não encontrado", TIPOS[".txt"]);
@@ -616,7 +625,11 @@ const servidor = http.createServer(async (req, res) => {
         site: Endereco.SITE,
         indexavel: Endereco.INDEXAVEL,
         demo: Demo.LIGADO,
-        pixDemo: !pix || pix === Demo.CHAVE_DEMO,
+        /* Só a chave de DEMONSTRAÇÃO acusa. Até a 0.13.0 a chave vazia também
+           acusava, e isso fazia sentido com a loja no ar; desde a 0.4.0 não há
+           loja, e "sem chave" é o estado certo — não um aviso eterno que ensina
+           a ignorar o aviso. */
+        pixDemo: pix === Demo.CHAVE_DEMO,
       }), TIPOS[".json"]);
     }
 
@@ -632,7 +645,7 @@ const servidor = http.createServer(async (req, res) => {
        coisas ao mesmo tempo.
        ==================================================================== */
     if (p === "/llms.txt") {
-      if (!Endereco.INDEXAVEL) return responder(res, 404, Paginas.erro404(req));
+      if (!Endereco.INDEXAVEL || Endereco.copiaDeTrabalho(req)) return responder(res, 404, Paginas.erro404(req));
       return responder(res, 200, require("./src/llms").llms(), TIPOS[".txt"]);
     }
 
@@ -654,7 +667,7 @@ const servidor = http.createServer(async (req, res) => {
        cabecalho `X-Robots-Tag` segurava sozinho).
        ==================================================================== */
     if (p === "/robots.txt") {
-      return responder(res, 200, Endereco.robots(), TIPOS[".txt"]);
+      return responder(res, 200, Endereco.robots(req), TIPOS[".txt"]);
     }
 
     if (p === "/sitemap.xml") {
@@ -662,7 +675,8 @@ const servidor = http.createServer(async (req, res) => {
          trabalho dentro. Sitemap preenchido é convite explícito para indexar —
          contradizendo o robots.txt que acabou de pedir o contrário. */
       const urls = [];
-      if (Endereco.INDEXAVEL) {
+      /* Pela cópia de trabalho, vazio também: o sitemap é do domínio real. */
+      if (Endereco.INDEXAVEL && !Endereco.copiaDeTrabalho(req)) {
         /* ================================================================
            SÓ ENTRA O QUE EXISTE
 
@@ -760,6 +774,11 @@ servidor.listen(PORTA, HOST, () => {
 `  ⚠  Conteúdo de DEMONSTRAÇÃO ativo: preços, produtos, blog e a ordem DEMO-01.
      Nenhum preço ali é real. Suba com ALAFCELL_DEMO=nao para o site começar limpo.
 `);
+  if (LIMPEZA && (LIMPEZA.materias || LIMPEZA.precos || LIMPEZA.produtos || LIMPEZA.ordem || LIMPEZA.pix))
+    console.log(`  ·  Demonstração retirada nesta subida: ${LIMPEZA.materias} matéria(s), `
+      + `${LIMPEZA.precos} preço(s), ${LIMPEZA.produtos} produto(s)`
+      + `${LIMPEZA.ordem ? ", a ordem DEMO-01" : ""}${LIMPEZA.pix ? ", a chave Pix de demonstração" : ""}`
+      + `${LIMPEZA.publicou ? " — e tirada do ar" : ""}.\n`);
   if (senha) console.log(
 `  ┌──────────────────────────────────────────────────────┐
   │  PRIMEIRO ACESSO — anote agora, aparece uma vez só   │

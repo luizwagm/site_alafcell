@@ -4,6 +4,99 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.13.1 — 15/09/2026 — A DEMONSTRAÇÃO SAI DE VERDADE, E A CÓPIA .projetos SAI DO ÍNDICE
+
+Pedido: reiniciar com `ALAFCELL_DEMO=nao`, retirar a chave Pix e fechar a
+cópia `.projetos` com `noindex`. Antes de fazer, dois defeitos apareceram. Os
+dois fariam o pedido parecer atendido sem ser.
+
+### 1. `ALAFCELL_DEMO=nao` não tirava nada
+
+A variável só impedia de **semear**. O cabeçalho do `demo.js`, o `server.js`
+e o `SUBIR.md` prometiam que o material "sai inteiro". Em produção, reiniciar
+com ela mudaria só o aviso da `/saude` para `demo:false`, e o blog continuaria
+com as três matérias de exemplo. Uma delas tem exemplo de preço ("se a tela
+custa R$ 450"), num site que o cliente mandou deixar sem preço.
+
+Agora, com `ALAFCELL_DEMO=nao`, sai tudo o que a demonstração semeou **e
+continua exatamente como foi semeado**:
+
+| | o que sai | o que fica |
+|---|---|---|
+| matérias | as 3 de exemplo, intocadas | a que o dono editou |
+| preços | as linhas com o valor exato da semeadura | o resto |
+| produtos | os 12 de exemplo, intocados | o que aparece num pedido (registro de venda) |
+| ordem | `DEMO-01` do "Cliente de demonstração" | qualquer outra |
+| chave Pix | a `00000000000` | uma chave real |
+
+Cada linha é conferida contra o texto de semeadura, que não mudou desde o
+primeiro commit (conferido no git), e apagada pelo ID.
+
+**Apagar do banco não tira do site**, porque o site lê o instantâneo
+publicado. E um `publicar()` comum levaria junto o que o dono está escrevendo
+e ainda não quis pôr no ar. Por isso entrou o `Pub.republicar()`: ele parte
+da **última publicação** e muda só o que a limpeza pede. A matéria que o dono
+editou e não publicou continua no ar com a versão de antes, até ele publicar
+a dele.
+
+Roda a cada subida e a cada entrega. Na segunda vez não acha nada e não
+grava nada.
+
+### 2. A entrega não lia o `.env`
+
+O `deploy.sh` chama `node ferramentas/semear.cjs` num shell comum. O serviço
+lê o `.env` pelo systemd, o atalho não lia. Com `ALAFCELL_DEMO=nao` no `.env`
+(ou na unidade, como o `SUBIR.md` mandava), o site subia com a demonstração
+desligada, e a entrega seguinte a via ligada e **semeava tudo de novo**. Agora
+o `semear.cjs` lê o `.env` antes de carregar qualquer módulo, com a mesma
+regra do systemd: o que já está no ambiente ganha. `SUBIR.md`, `deploy.sh` e
+`criar-site.sh` passaram a mandar a variável para o `.env`.
+
+### 3. A chave Pix
+
+Sai só a de demonstração. Sem chave nenhuma, o site não oferece Pix em lugar
+nenhum, porque a loja está desligada desde a 0.4.0. O `pixDemo` da `/saude`
+acusava também a chave **vazia**, o que fazia sentido com loja. Sem loja, era
+um aviso eterno. Agora acusa só a chave de demonstração.
+
+### 4. A cópia `alafcell.projetos.luizaugust.me` sai do índice
+
+Os dois vhosts apontam para o mesmo processo, e a regra de "endereço de
+trabalho" olhava só o `ALAFCELL_SITE`, que agora é o domínio real. Conferido
+de fora em 15/09: a cópia respondia 200, sem `noindex`, e com o robots do
+domínio real, **inclusive a linha `Sitemap:`**.
+
+A decisão agora é **por pedido**, pelo `Host` que o nginx repassa. Pela
+cópia:
+
+- toda resposta leva `X-Robots-Tag: noindex, nofollow, noarchive` (página,
+  CSS, imagem, redirecionamento, 404);
+- a página leva também a etiqueta `<meta name="robots">`, e o canonical
+  continua apontando o domínio real;
+- o sitemap sai vazio e o `llms.txt` responde 404;
+- o robots.txt fica **sem** `Sitemap:` e **sem** `Disallow: /`.
+
+⚠ **O `Disallow: /` ficou de fora de propósito.** É o contrário do endereço
+de trabalho de um site que ainda não subiu. Lá ninguém conhece as páginas.
+Aqui o robô pode já tê-las achado, pelo link de aprovação ou pelo repositório
+público. Página bloqueada no robots não é **lida**, e o `noindex` dela nunca é
+visto. Para sair do índice, o robô precisa entrar.
+
+O domínio real não muda. Um domínio alheio que apenas **contém** o texto
+(`…projetos.luizaugust.me.br`) não passa por subdomínio nosso, porque a
+conferência é pelo sufixo.
+
+### Provas
+
+- **347** na suíte (eram 325) e **77** nas rotas (eram 64).
+- O cenário da limpeza é o de produção: demonstração semeada e publicada,
+  com uma matéria editada pelo dono e um texto dele ainda não publicado.
+- A leitura do `.env` é provada com um `.env` de mentira (`ALAFCELL_ENV`),
+  com controle: sem ele, a mesma chamada semeia as 3 matérias.
+- **11 sabotagens, 11 pegas.**
+
+---
+
 ## 0.13.0 — 15/09/2026 — CADA CONSERTO COM A SUA PÁGINA, E O ORÇAMENTO TAMBÉM
 
 Pedido do cliente: uma tela com a lista de serviços, uma tela por serviço com

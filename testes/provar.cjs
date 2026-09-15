@@ -1490,6 +1490,96 @@ ok("o grupo não deixou nada para trás",
              + (SELECT COUNT(*) FROM modelos WHERE nome LIKE 'ZZ QA%')
              + (SELECT COUNT(*) FROM posts WHERE titulo LIKE 'ZZ QA%') c`).c, 0);
 
+/* ==========================================================================
+   A DEMONSTRAÇÃO SAI DE VERDADE (0.13.1)
+
+   Até a 0.13.0, `ALAFCELL_DEMO=nao` só parava de semear: em produção o
+   `/saude` diria "demo: false" com as três matérias de exemplo no blog. O
+   cenário daqui é o de produção — demonstração semeada e PUBLICADA — com duas
+   coisas do dono no meio, que a limpeza não pode tocar: uma matéria de
+   exemplo que ele editou e um texto que ele mudou e ainda não publicou.
+   ========================================================================== */
+grupo("Demonstração desligada (0.13.1)");
+const txt = (c, padrao) => { const v = Pub.textos()[c]; return v !== undefined && v !== "" ? v : padrao; };
+
+const SLUGS_DEMO = ["vale-a-pena-trocar-a-tela-ou-comprar-outro-celular",
+  "bateria-do-celular-viciada-mito-ou-verdade", "celular-caiu-na-agua-o-que-fazer"];
+Pub.publicar("ZZ QA");
+const demoNoAr = Pub.posts().filter((p) => SLUGS_DEMO.includes(p.slug));
+ok("cenário: as três matérias de exemplo estão no ar", demoNoAr.length, 3);
+ok("e a chave Pix é a de demonstração", txt("pagamento.pix_chave", ""), Demo.CHAVE_DEMO);
+verdade("e há preço de demonstração", Q.um("SELECT COUNT(*) c FROM precos WHERE preco > 0").c > 0);
+verdade("e a ordem DEMO-01", !!Q.um("SELECT id FROM ordens WHERE codigo = 'DEMO-01'"));
+
+/* O que é do dono */
+const editada = Q.um("SELECT id, corpo FROM posts WHERE slug = ?", SLUGS_DEMO[0]);
+Q.roda("UPDATE posts SET corpo = ? WHERE id = ?", editada.corpo + "<p>ZZ o dono editou</p>", editada.id);
+const descAntes = Pub.textos()["seo.descricao"];
+ajuste("seo.descricao", "ZZ QA rascunho que o dono NÃO publicou");
+const vendido = Q.um("SELECT DISTINCT produto_id id FROM pedido_itens LIMIT 1");
+const pubsAntes = Q.um("SELECT COUNT(*) c, MAX(id) m FROM publicacao");
+
+const limpo = Demo.limpar();
+ok("as duas matérias intocadas saem do banco", limpo.materias, 2);
+verdade("a editada pelo dono fica no banco", !!Q.um("SELECT id FROM posts WHERE id = ?", editada.id));
+ok("e SAEM DO AR — não basta apagar da tabela, o site lê o publicado",
+  Pub.posts().filter((p) => SLUGS_DEMO.includes(p.slug)).map((p) => p.slug), [SLUGS_DEMO[0]]);
+verdade("a limpeza publicou", limpo.publicou);
+/* A publicação da limpeza parte do que estava no ar, e não do rascunho: um
+   `publicar()` comum levaria junto o texto que o dono ainda está escrevendo. */
+ok("o rascunho do dono NÃO foi ao ar junto", Pub.textos()["seo.descricao"], descAntes);
+ok("a chave Pix de demonstração sai do cadastro",
+  (Q.um("SELECT valor FROM config WHERE chave = 'pagamento.pix_chave'") || {}).valor, "");
+ok("e do que está no ar", txt("pagamento.pix_chave", "x"), "x");
+ok("os preços de demonstração saem", Q.um("SELECT COUNT(*) c FROM precos WHERE preco > 0").c, 0);
+ok("e o resumo deles no instantâneo também", (Pub.atual().precos || []).length, 0);
+ok("a ordem DEMO-01 sai", Q.um("SELECT COUNT(*) c FROM ordens WHERE codigo = 'DEMO-01'").c, 0);
+verdade("produto que está num pedido fica (é registro de venda)",
+  !vendido || !!Q.um("SELECT id FROM produtos WHERE id = ?", vendido.id));
+verdade("os outros produtos de demonstração saem", limpo.produtos > 0);
+
+/* A cada subida e a cada entrega: na segunda vez não acha nada, e não escreve. */
+const pubsDepois = Q.um("SELECT COUNT(*) c, MAX(id) m FROM publicacao").m;
+const deNovo = Demo.limpar();
+ok("rodar de novo não acha nada",
+  [deNovo.materias, deNovo.precos, deNovo.produtos, deNovo.ordem, deNovo.pix], [0, 0, 0, 0, false]);
+ok("e não grava publicação nenhuma", Q.um("SELECT MAX(id) m FROM publicacao").m, pubsDepois);
+verdade("(a primeira gravou uma só)", pubsDepois === pubsAntes.m + 1);
+
+/* --- a entrega LÊ o .env (o deploy.sh chama o semear.cjs num shell comum) --- */
+{
+  const { spawnSync } = require("node:child_process");
+  const os2 = require("node:os");
+  const envFalso = path.join(os2.tmpdir(), `alaf-env-${process.pid}.txt`);
+  const semear = (comEnv) => {
+    const banco = path.join(os2.tmpdir(), `alaf-semear-${process.pid}-${comEnv ? 1 : 0}.db`);
+    const env = { ...process.env, ALAFCELL_DB: banco, ALAFCELL_ENV: comEnv ? envFalso : envFalso + ".nao-existe" };
+    delete env.ALAFCELL_DEMO;
+    const r = spawnSync(process.execPath, [path.join(__dirname, "..", "ferramentas", "semear.cjs")],
+      { encoding: "utf8", env });
+    const D = require("better-sqlite3");
+    const db = new D(banco);
+    const posts = db.prepare("SELECT COUNT(*) c FROM posts").get().c;
+    db.close();
+    for (const s of ["", "-wal", "-shm"]) { try { fs.unlinkSync(banco + s); } catch {} }
+    return { posts, saida: r.stdout || "", erro: r.status };
+  };
+  fs.writeFileSync(envFalso, "# como o do servidor\nALAFCELL_SITE=https://alafcell.com.br\nALAFCELL_DEMO=nao\n");
+  const com = semear(true);
+  const sem = semear(false);
+  fs.unlinkSync(envFalso);
+  ok("com ALAFCELL_DEMO=nao no .env, a entrega NÃO semeia a demonstração", [com.erro, com.posts], [0, 0]);
+  verdade("e diz que ela está desligada", /demonstração desligada/.test(com.saida));
+  /* O controle: sem o .env, a mesma chamada semeia — senão a prova de cima
+     passaria com o carregador desligado. */
+  ok("sem o .env, a mesma chamada semeia (o controle)", [sem.erro, sem.posts], [0, 3]);
+}
+
+/* Faxina: o que é do dono volta a ser o que era */
+ajuste("seo.descricao", descAntes || "");
+Q.roda("DELETE FROM posts WHERE id = ?", editada.id);
+Pub.publicar("ZZ QA");
+
 /* ========================================================================== */
 console.log(`\n  ${falhou ? "✖" : "✔"} ${passou} passaram, ${falhou} falharam · ${grupos.length} grupos\n`);
 

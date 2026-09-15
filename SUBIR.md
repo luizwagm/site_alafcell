@@ -124,10 +124,16 @@ cliente final, e o terceiro é o site dizendo ao Google o endereço errado.
    Conferir e substituir em `/admin`.
 2. **A chave Pix.** Está a de demonstração (`00000000000`), que não recebe
    dinheiro. Cadastrar a real em `/admin`.
-   Depois, desligar o conteúdo de demonstração na unidade:
+   Depois, desligar o conteúdo de demonstração **no `.env`** do site (e não
+   na unidade do systemd: a entrega roda `ferramentas/semear.cjs` num shell
+   comum, que lê o `.env` e não enxerga a unidade — com a variável só lá, cada
+   deploy semeava a demonstração de novo):
    ```
-   Environment=ALAFCELL_DEMO=nao
+   ALAFCELL_DEMO=nao
    ```
+   Desde a 0.13.1 isso também **tira** o que a demonstração semeou e continua
+   intocado (matérias, preços, produtos, a ordem DEMO-01 e a chave Pix de
+   exemplo), inclusive do que está publicado. O que o dono editou fica.
 3. **Endereço, telefone, horário e CNPJ**, em `/admin`. Sem endereço real o
    `LocalBusiness` do Schema.org não monta — e é justamente o que trava as
    páginas de franquia dos concorrentes no Google.

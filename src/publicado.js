@@ -177,6 +177,33 @@ function publicar(quem) {
   return ultima();
 }
 
+/* ==========================================================================
+   PUBLICAR UMA MUDANÇA SÓ — a partir do que está no ar, e não do rascunho
+
+   Existe para a limpeza da demonstração (src/demo.js). Tirar do banco uma
+   matéria de exemplo não a tira do site: o site lê o instantâneo. E `publicar()`
+   copiaria o rascunho INTEIRO — inclusive o que o dono está escrevendo e ainda
+   não quis pôr no ar. Uma limpeza automática não pode apertar o botão dele.
+
+   Aqui a publicação nova é a ÚLTIMA publicada, com só o que `mudar` alterar.
+   Sem publicação nenhuma não há o que fazer: o site já lê o rascunho direto.
+   ========================================================================== */
+function republicar(mudar, quem) {
+  const linha = Q.um("SELECT dados FROM publicacao ORDER BY id DESC LIMIT 1");
+  if (!linha) return null;
+  let dados;
+  try { dados = JSON.parse(linha.dados); } catch { return null; }
+  const antes = JSON.stringify(dados);
+  mudar(dados);
+  if (JSON.stringify(dados) === antes) return null;   /* nada mudou: nada a gravar */
+  Q.roda("INSERT INTO publicacao (quem, dados, criado) VALUES (?,?,?)",
+    String(quem || ""), JSON.stringify(dados), new Date().toISOString());
+  CACHE = dados;
+  Q.roda(`DELETE FROM publicacao WHERE id NOT IN
+          (SELECT id FROM publicacao ORDER BY id DESC LIMIT 20)`);
+  return ultima();
+}
+
 function ultima() {
   const l = Q.um("SELECT id, quem, criado FROM publicacao ORDER BY id DESC LIMIT 1");
   return l || null;
@@ -262,7 +289,7 @@ const precoMinimo = (servicoId) => {
 };
 
 module.exports = {
-  montar, publicar, ultima, haMudancas, atual,
+  montar, publicar, republicar, ultima, haMudancas, atual,
   comoRascunho, lendoRascunho,
   textos, servicos, marcas, modelos, populares, posts, postPorSlug, avaliacoes, selo, quando, faq,
   marcaPorSlug, modeloPorSlug, servicoPorSlug, precoMinimo,

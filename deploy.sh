@@ -236,7 +236,7 @@ for i in $(seq 1 20); do
     if grep -q '"demo":true' /tmp/alafcell-saude.json 2>/dev/null; then
       amar ""
       amar "  ⚠ conteúdo de DEMONSTRAÇÃO ainda ativo — nenhum preço ali é real."
-      amar "    Suba com ALAFCELL_DEMO=nao na unidade quando o cliente preencher os dados."
+      amar "    Ponha ALAFCELL_DEMO=nao no .env do site (não na unidade: a entrega não a lê)."
     fi
     if grep -q '"pixDemo":true' /tmp/alafcell-saude.json 2>/dev/null; then
       amar "  ⚠ a chave Pix ainda é a de DEMONSTRAÇÃO e NÃO recebe pagamento."

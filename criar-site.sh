@@ -165,7 +165,7 @@ if [ "$SUBDOMINIO" -eq 0 ]; then
   echo
   amarelo "     ATENÇÃO: domínio público."
   amarelo "     Confira em /admin se os preços e a chave Pix são os reais,"
-  amarelo "     e ponha ALAFCELL_DEMO=nao na unidade do systemd."
+  amarelo "     e ponha ALAFCELL_DEMO=nao no .env (a entrega lê o .env, não a unidade)."
   echo
 fi
 
