@@ -58,11 +58,18 @@ const INDEXAVEL = forcado === "sim" ? true
    sitemap num site que pede para não ser indexado é dizer as duas coisas ao
    mesmo tempo, e o Google resolve a contradição do jeito dele.
 
-   No endereço real ficam de fora os painéis e o `/orcamento`.
+   No endereço real ficam de fora os painéis e o DESVIO do orçamento.
 
-   O `/orcamento` não é página: é um desvio para o WhatsApp. Indexá-lo poria a
-   conversa da assistência no resultado de busca e gastaria rastreamento numa
-   URL que nunca devolve conteúdo.
+   O desvio não é página: é um redirecionamento para o WhatsApp. Indexá-lo
+   poria a conversa da assistência no resultado de busca e gastaria
+   rastreamento numa URL que nunca devolve conteúdo.
+
+   ⚠ O ROBOTS.TXT PROÍBE POR PREFIXO. Até a 0.12.0 a regra era
+   `Disallow: /orcamento`, e com a página nova (/orcamento/, 0.13.0) ela a
+   tiraria do Google junto com o desvio — sem erro nenhum, só a página nunca
+   aparecendo. Agora são duas regras estreitas: o desvio novo
+   (`/orcamento/whatsapp`) e o endereço antigo SÓ com query (`/orcamento?`),
+   que é o único jeito de ele ainda desviar. A página passa pelas duas.
 
    Carrinho, checkout e acompanhamento saíram desta lista na 0.4.0 junto com as
    rotas: pedir ao robô que não visite o que responde 404 é instrução morta, e
@@ -101,7 +108,7 @@ Disallow: /
      Listar os nomes juntos, seguidos das mesmas regras, mantem as proibicoes
      num lugar so — e o proximo caminho proibido nao precisa ser lembrado duas
      vezes, que e como esse tipo de furo nasce. */
-  const PROIBIDO = ["/admin/", "/restrito/", "/orcamento"];
+  const PROIBIDO = ["/admin/", "/restrito/", "/orcamento/whatsapp", "/orcamento?"];
   const regras = PROIBIDO.map((c) => `Disallow: ${c}`).join("\n");
 
   const IA = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot",

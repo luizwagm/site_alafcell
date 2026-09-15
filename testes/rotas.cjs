@@ -158,21 +158,69 @@ async function esperarSubir(tentativas = 60) {
     /* Sem `lastmod` o buscador revisita tudo na mesma cadência e matéria nova
        demora a aparecer. */
     verdade("e com lastmod", /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/.test(mapa.corpo));
-    /* O `/orcamento` não é página: é um desvio para o WhatsApp. */
-    ok("o /orcamento fica de fora", mapa.corpo.includes("/orcamento"), false);
-    ok("e o painel também", mapa.corpo.includes("/admin"), false);
+    /* O DESVIO do orçamento não é página: é o redirecionamento para o
+       WhatsApp. A PÁGINA do orçamento (0.13.0) é, e entra. */
+    ok("o desvio do orçamento fica de fora", /orcamento\/whatsapp|orcamento\?/.test(mapa.corpo), false);
+    verdade("a página do orçamento entra", mapa.corpo.includes("<loc>https://alafcell.com.br/orcamento/</loc>"));
+    verdade("a lista de consertos entra", mapa.corpo.includes("<loc>https://alafcell.com.br/consertos/</loc>"));
+    ok("e o painel não", mapa.corpo.includes("/admin"), false);
 
     /* Toda página anunciada tem de existir. Sitemap que aponta para 404 é o
        sinal que o buscador usa para desconfiar do resto do site. */
     const anunciadas = [...mapa.corpo.matchAll(/<loc>https:\/\/alafcell\.com\.br([^<]*)<\/loc>/g)]
       .map((m) => m[1]);
     verdade("o sitemap anuncia alguma coisa", anunciadas.length > 0);
+    const servicosNoMapa = anunciadas.filter((u) => /^\/consertos\/[^/]+\/$/.test(u));
+    verdade("cada serviço publicado tem a sua página no sitemap", servicosNoMapa.length >= 6);
     let mortas = [];
+    /* E cada uma se declara a si mesma: canonical apontando para outro
+       endereço é pedir ao buscador que ignore a página que se acabou de
+       oferecer a ele. Um h1 por página, e o bloco de dados tem de ser JSON. */
+    const tortas = [];
     for (const u of anunciadas) {
       const r = await pedir(u);
-      if (r.codigo !== 200) mortas.push(`${u} → ${r.codigo}`);
+      if (r.codigo !== 200) { mortas.push(`${u} → ${r.codigo}`); continue; }
+      if (!r.corpo.includes(`<link rel="canonical" href="https://alafcell.com.br${u}">`))
+        tortas.push(`${u}: canonical`);
+      if ((r.corpo.match(/<h1\b/g) || []).length !== 1) tortas.push(`${u}: h1`);
+      const ld = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(r.corpo);
+      try { if (ld) JSON.parse(ld[1]); } catch { tortas.push(`${u}: JSON-LD quebrado`); }
+      /* Sem preço em página nenhuma — a decisão do cliente vale para as
+         páginas novas também. */
+      if (/R\$\s?\d/.test(r.corpo)) tortas.push(`${u}: preço`);
     }
     ok("nenhuma página do sitemap responde erro", mortas, []);
+    ok("todas com canonical próprio, um h1, dado legível e sem preço", tortas, []);
+
+    /* ---------------------------------------------- consertos e orçamento */
+    {
+      const umServico = servicosNoMapa[0] || "/consertos/troca-de-tela/";
+      ok("serviço inexistente é 404", (await pedir("/consertos/zz-nao-existe/")).codigo, 404);
+      /* Um nível só: a página do serviço repetida sob outro endereço seriam
+         duas páginas disputando a mesma busca. */
+      ok("e caminho mais fundo também", (await pedir(umServico + "extra/")).codigo, 404);
+      const semBarra = await pedir(umServico.slice(0, -1));
+      ok("sem a barra final, redireciona para a canônica",
+        [semBarra.codigo >= 300 && semBarra.codigo < 400, semBarra.cabecalhos.location], [true, umServico]);
+
+      /* O desvio: o form GET vira a primeira mensagem do WhatsApp. */
+      const slugServ = umServico.split("/")[2];
+      const desvio = await pedir(`/orcamento/whatsapp?servico=${slugServ}`);
+      verdade("o desvio responde com o WhatsApp",
+        desvio.codigo >= 300 && desvio.codigo < 400 && /^https:\/\/wa\.me\//.test(desvio.cabecalhos.location || ""));
+      /* O endereço antigo (0.4.0–0.12.0), com escolha: continua desviando —
+         página em cache e link colado num grupo não podem quebrar. */
+      const antigo = await pedir(`/orcamento?servico=${slugServ}`);
+      verdade("o endereço antigo com escolha ainda desvia",
+        /^https:\/\/wa\.me\//.test(antigo.cabecalhos.location || ""));
+      /* Sem nada, é alguém digitando o endereço: vai para a página. */
+      const digitado = await pedir("/orcamento");
+      ok("o endereço antigo sem nada leva à página", digitado.cabecalhos.location, "/orcamento/");
+      const pOrc = await pedir("/orcamento/?marca=samsung");
+      ok("a página do orçamento abre com a query", pOrc.codigo, 200);
+      verdade("e o canonical é o endereço limpo",
+        pOrc.corpo.includes('<link rel="canonical" href="https://alafcell.com.br/orcamento/">'));
+    }
 
     /* ------------------------------------------- os robôs de IA e o llms.txt */
     /* ⚠ ROBOTS.TXT NÃO HERDA: um robô obedece a UM grupo — o mais específico
@@ -187,6 +235,19 @@ async function esperarSubir(tentativas = 60) {
       verdade("os robôs de IA são nomeados", /User-agent: GPTBot/.test(robots.corpo));
       verdade("e o Claude também", /User-agent: ClaudeBot/.test(robots.corpo));
       verdade("o robots aponta para o llms.txt", robots.corpo.includes("/llms.txt"));
+
+      /* ⚠ ROBOTS.TXT PROÍBE POR PREFIXO. Até a 0.12.0 a regra era
+         `Disallow: /orcamento`, e ela tiraria do Google a página nova
+         (/orcamento/) junto com o desvio — sem erro nenhum. A prova aplica as
+         regras do jeito que o robô aplica, e pergunta caminho por caminho. */
+      const regras = [...robots.corpo.matchAll(/^Disallow: (.+)$/gm)].map((m) => m[1].trim());
+      const bloqueado = (c) => regras.some((r) => c.startsWith(r));
+      ok("o robô pode ler a página do orçamento e os consertos",
+        ["/orcamento/", "/orcamento/?marca=samsung", "/consertos/", "/consertos/troca-de-tela/"]
+          .filter(bloqueado), []);
+      ok("e não pode seguir o desvio, nem o novo nem o antigo",
+        ["/orcamento/whatsapp?servico=x", "/orcamento?servico=x", "/admin/"]
+          .filter((c) => !bloqueado(c)), []);
     }
 
     const llms = await pedir("/llms.txt");
@@ -194,6 +255,9 @@ async function esperarSubir(tentativas = 60) {
     verdade("como texto puro", /text\/plain/.test(llms.cabecalhos["content-type"] || ""));
     verdade("com o nome do negócio", llms.corpo.includes("Alafcell"));
     verdade("o que a loja conserta", /## O que a loja conserta/.test(llms.corpo));
+    /* Quem cita a loja numa resposta cita o endereço que fala só daquilo. */
+    verdade("cada conserto com o link da própria página",
+      /\]\(https:\/\/alafcell\.com\.br\/consertos\/[a-z0-9-]+\/\)/.test(llms.corpo));
     /* Metade das perguntas que chegam a uma assistência é sobre serviço que ela
        não presta. Um "não" claro evita o cliente errado — e a resposta errada
        de um assistente que precisou adivinhar. */

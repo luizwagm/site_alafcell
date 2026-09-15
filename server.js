@@ -32,10 +32,13 @@ const Pub = require("./src/publicado");
 const Google = require("./src/google");
 const Blog = require("./src/blog");
 const Inst = require("./src/institucional");
+/* A lista de consertos e a página de cada um voltaram na 0.13.0 — SEM preço,
+   que continua fora do site por decisão do cliente (0.4.0). */
+const Consertos = require("./src/consertos");
+const Orc = require("./src/orcamento");
 /* ==========================================================================
    DESLIGADOS NA 0.4.0 — os arquivos continuam em src/, sem rota nenhuma:
 
-     src/consertos.js    telas por serviço e por modelo, com tabela de preços
      src/coleta.js       formulário de agendamento da busca e leva
      src/loja.js         vitrine, carrinho, checkout e pedido
      src/acompanhar.js   consulta da ordem por código + telefone
@@ -263,11 +266,14 @@ const servidor = http.createServer(async (req, res) => {
      para /saude/ faria o monitoramento e o verificador do deploy receberem 303
      seguido de 404 — reportando o site como fora do ar com o site no ar.
      ========================================================================== */
-  /* "/orcamento" entra aqui porque NÃO é página: é um desvio para o WhatsApp.
-     Sem isto, o redirecionamento canônico o mandava para "/orcamento/" antes
-     de a rota existir — e a query ia junto, então a mensagem parecia montada
-     e o navegador parava num 404. */
-  const OPERACAO = ["/saude", "/robots.txt", "/sitemap.xml", "/llms.txt", "/manifest.webmanifest", "/orcamento",
+  /* "/orcamento/whatsapp" entra aqui porque NÃO é página: é o desvio para o
+     WhatsApp. "/orcamento" (sem barra) é o endereço antigo do mesmo desvio, e
+     decide sozinho para onde vai (ver a rota). Sem os dois aqui, o
+     redirecionamento canônico os mandava para a versão com barra — e foi
+     assim que, antes da 0.13.0, a mensagem parecia montada e o navegador
+     parava num 404. */
+  const OPERACAO = ["/saude", "/robots.txt", "/sitemap.xml", "/llms.txt", "/manifest.webmanifest",
+    "/orcamento", Orc.DESVIO,
     /* A previa do painel tambem nao e pagina do site: sem isto o
        redirecionamento canonico a mandaria para "/admin/previa/", que nao
        existe — o mesmo tropeco que o /orcamento deu. */
@@ -473,37 +479,57 @@ const servidor = http.createServer(async (req, res) => {
     /* ====================================================================
        O ORÇAMENTO VIRA A PRIMEIRA MENSAGEM DO WHATSAPP
 
-       Esta rota não desenha nada: lê o que a pessoa escolheu na landing,
-       escreve a mensagem e responde um 302 para o `wa.me`. É o que permite o
-       formulário continuar sendo um form GET de verdade, sem depender de
-       JavaScript para montar o link — numa assistência técnica, quem chega
-       com o aparelho ruim e a rede pior é o público, não a exceção.
+       O desvio não desenha nada: lê o que a pessoa escolheu, escreve a
+       mensagem e responde com o `wa.me`. É o que permite o formulário
+       continuar sendo um form GET de verdade, sem depender de JavaScript para
+       montar o link — numa assistência técnica, quem chega com o aparelho
+       ruim e a rede pior é o público, não a exceção.
 
-       OS NOMES SAEM DO BANCO, e não da query. O que chega na URL é um slug, e
-       mandar o slug cru ("galaxy-a54") entregaria ao atendente um texto de
-       máquina. É também o que impede forjar mensagem: só entra no texto o que
-       existe cadastrado e ativo.
+       A mensagem é montada em `src/orcamento.js`, sempre do INSTANTÂNEO: um
+       modelo que o dono desativou e ainda não publicou não pode entrar na
+       mensagem que chega no WhatsApp da loja.
+
+       "/orcamento" SEM BARRA foi o endereço deste desvio da 0.4.0 à 0.12.0.
+       Com escolha na query ele continua desviando — página em cache e link
+       colado num grupo de WhatsApp não podem quebrar. Sem nada, é alguém
+       digitando o endereço: vai para a página.
        ==================================================================== */
-    if (p === "/orcamento") {
-      registrar(req, "/orcamento");
-      /* DO INSTANTÂNEO: um modelo que o dono desativou e ainda não publicou
-         não pode entrar na mensagem que chega no WhatsApp da loja. */
-      const marcaNome = (Pub.marcaPorSlug(q.marca) || {}).nome || "";
-      const modeloNome = (Pub.modeloPorSlug(q.modelo) || {}).nome || "";
-      const servicoNome = q.servico === "outro"
-        ? "Outro problema"
-        : (Pub.servicoPorSlug(q.servico) || {}).nome || "";
+    if (p === Orc.DESVIO || (p === "/orcamento" && url.search.length > 1)) {
+      registrar(req, Orc.DESVIO);
+      return redir(res, zap(Orc.mensagem(q)));
+    }
+    if (p === "/orcamento") return redir(res, "/orcamento/");
 
-      const msg = ["Olá! Vim pelo site e queria um orçamento."];
-      const aparelho = [marcaNome, modeloNome].filter(Boolean).join(" ");
-      if (aparelho) msg.push("Aparelho: " + aparelho + ".");
-      if (servicoNome) msg.push("Serviço: " + servicoNome + ".");
-      /* Sem nada escolhido a mensagem ainda vale: melhor a conversa começar
-         vazia do que não começar. Quem não soube dizer o modelo no site diz no
-         WhatsApp, com o aparelho na mão. */
-      if (!aparelho && !servicoNome) msg.push("Pode me ajudar?");
+    /* A página do orçamento: indexada e no sitemap. `?marca=` e cia. só
+       pré-selecionam; o canonical é o endereço limpo. */
+    if (p === "/orcamento/") {
+      registrar(req, "/orcamento/");
+      return responder(res, 200, Orc.pagina(req, q));
+    }
 
-      return redir(res, zap(msg.join(" ")));
+    /* ====================================================================
+       CONSERTOS — a lista e a página de cada um (0.13.0)
+
+       Um nível só: /consertos/<nome>/. Qualquer coisa mais funda é 404, e não
+       a página do serviço repetida sob outro endereço — duas URLs com o mesmo
+       conteúdo são duas páginas disputando a mesma busca.
+
+       O acesso é contado DEPOIS de saber que o serviço existe: contar antes
+       encheria a tabela com cada endereço inventado que um robô tentar.
+       ==================================================================== */
+    if (partes[0] === "consertos") {
+      if (partes.length === 1) {
+        registrar(req, "/consertos/");
+        return responder(res, 200, Consertos.lista(req));
+      }
+      if (partes.length === 2) {
+        const html = Consertos.servico(req, partes[1]);
+        if (html) {
+          registrar(req, `/consertos/${partes[1]}/`);
+          return responder(res, 200, html);
+        }
+      }
+      return responder(res, 404, Paginas.erro404(req));
     }
 
     /* ====================================================================
@@ -638,18 +664,18 @@ const servidor = http.createServer(async (req, res) => {
       const urls = [];
       if (Endereco.INDEXAVEL) {
         /* ================================================================
-           O SITEMAP ENCOLHEU COM O SITE (0.4.0)
+           SÓ ENTRA O QUE EXISTE
 
-           Ele oferecia ao Google quase setenta endereços: um por serviço, um
-           por marca, um por modelo popular, um por produto. Todos dão 404
-           agora. Sitemap que aponta para 404 não é só inútil — é o sinal que
-           o buscador usa para desconfiar do resto, e as páginas mortas ficam
-           meses no índice atrapalhando quem procura a loja.
+           Na 0.4.0 o sitemap encolheu com o site: ele oferecia ao Google
+           quase setenta endereços (um por serviço, marca, modelo e produto)
+           que passaram a dar 404. Sitemap que aponta para 404 é o sinal que o
+           buscador usa para desconfiar do resto.
 
-           Sobraram as três que existem de verdade: a landing, o blog e cada
-           matéria. O `/orcamento` NÃO entra: ele não é página, é um desvio
-           para o WhatsApp, e indexá-lo colocaria a conversa da assistência
-           no resultado de busca.
+           Na 0.13.0 voltam a lista de consertos, a página de CADA serviço
+           publicado e a página do orçamento. Marca e modelo continuam fora:
+           não têm página. O DESVIO do orçamento (/orcamento/whatsapp) também
+           não entra: ele não é página, e indexá-lo poria a conversa da
+           assistência no resultado de busca.
            ================================================================ */
         /* `lastmod` DIZ AO BUSCADOR O QUE MUDOU.
 
@@ -661,7 +687,10 @@ const servidor = http.createServer(async (req, res) => {
            Data ausente é omitida em vez de virar "hoje": `lastmod` mentindo
            gasta rastreamento à toa e o buscador aprende a ignorá-lo. */
         const doSite = Pub.quando();
-        urls.push(["/", doSite], ["/blog/", doSite], ["/privacidade/", doSite]);
+        urls.push(["/", doSite], ["/consertos/", doSite], ["/orcamento/", doSite]);
+        /* Serviço fora do instantâneo não entra: rascunho e desativado dão 404. */
+        for (const s of Pub.servicos()) urls.push([`/consertos/${s.slug}/`, doSite]);
+        urls.push(["/blog/", doSite], ["/privacidade/", doSite]);
         /* Matéria não publicada não entra no sitemap: o Google iria buscá-la
            e receberia 404. */
         for (const b of Pub.posts()) urls.push([`/blog/${b.slug}/`, b.data || doSite]);

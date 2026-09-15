@@ -52,18 +52,22 @@ número de exemplo `5581999999999`, que é de outra pessoa.
 
 ### O roteiro de conferência
 
-Depois de subir, vale percorrer nesta ordem — é onde a 0.4.0 mexeu:
+Depois de subir, vale percorrer nesta ordem — é onde a 0.4.0 e a 0.13.0 mexeram:
 
 1. **A landing inteira** (`/`): as seções são orçamento, consertos, busca e
    leva, como funciona, garantia, blog e contato. Nenhum preço deve aparecer.
-2. **O formulário de orçamento**: escolha marca, modelo e serviço e envie. Ele
+   Cada cartão de conserto leva à página dele.
+2. **Os consertos** (`/consertos/` e `/consertos/<nome>/`): a lista e a página
+   de cada serviço, **sem preço**, com a ferramenta de orçamento já com o
+   serviço escolhido.
+3. **O orçamento** (`/orcamento/`): escolha marca, modelo e serviço e envie. Ele
    sai do site para o WhatsApp com a mensagem já escrita — confira o texto.
-3. **Os botões de WhatsApp** (topo, consertos, coleta, contato, rodapé).
-4. **O blog** (`/blog/`) e uma matéria.
-5. **O que deve dar 404**: `/loja/`, `/carrinho/`, `/checkout/`, `/consertos/`,
+4. **Os botões de WhatsApp** (topo, consertos, coleta, contato, rodapé).
+5. **O blog** (`/blog/`) e uma matéria.
+6. **O que deve dar 404**: `/loja/`, `/carrinho/`, `/checkout/`,
    `/busca-e-leva/`, `/acompanhar/`, `/contato/`.
-6. **O rodapé**: "Onde estamos" ao lado de "A Alafcell", e a lista de consertos
-   sem link por serviço.
+7. **O rodapé**: "Onde estamos" ao lado de "A Alafcell", e cada conserto com
+   link para a própria página.
 
 Para ver como o site fica indexável (sitemap e `robots.txt` do endereço real):
 
@@ -111,7 +115,8 @@ src/
   conteudo-inicial.js     o site nasce cheio; nada sobrescreve o que existe
   layout.js               cabeçalho, rodapé, <head>, a engrenagem em SVG
   paginas.js              home e 404
-  consertos.js            serviços, tabela de preços, recorte por marca/modelo
+  consertos.js            /consertos/ e a página de cada serviço (sem preço)
+  orcamento.js            a página /orcamento/, o formulário único e a mensagem
   coleta.js               busca e leva e o agendamento
   loja.js                 vitrine, produto, carrinho, checkout e pedido
   blog.js                 índice e matéria
@@ -223,15 +228,20 @@ telefone **0000**.
 | endereço | o que é |
 |---|---|
 | `/` | a landing: orçamento, consertos, busca e leva, como funciona, garantia, blog e contato |
-| `/orcamento` | **não é página** — monta a mensagem e redireciona para o WhatsApp |
+| `/consertos/` | a lista de consertos, sem preço |
+| `/consertos/:slug/` | a página de um serviço: sintomas, prazo, garantia e o orçamento já com ele |
+| `/orcamento/` | a página do orçamento: a ferramenta, as etapas e por que não há preço |
+| `/orcamento/whatsapp` | **não é página** — monta a mensagem e redireciona para o WhatsApp |
+| `/orcamento?…` | o endereço antigo do desvio (até a 0.12.0): com escolha, desvia; sem nada, vai à página |
 | `/blog/`, `/blog/:slug/` | índice e matéria |
 | `/privacidade/` | fora do menu, apontada só pelo rodapé |
 | `/admin/` | o painel do dono — todo o conteúdo do site |
 | `/admin/previa` | a home montada com o rascunho, antes de publicar (exige sessão) |
 
 Todo o resto responde **404 de propósito** desde a 0.4.0 — inclusive `/loja/`,
-`/carrinho/`, `/checkout/`, `/consertos/`, `/busca-e-leva/`, `/acompanhar/` e
-`/contato/`. O CHANGELOG diz o que era cada um e como religar.
+`/carrinho/`, `/checkout/`, `/busca-e-leva/`, `/acompanhar/` e `/contato/`. O
+CHANGELOG diz o que era cada um e como religar. (`/consertos/` voltou na 0.13.0,
+sem preço.)
 
 ## Provas
 

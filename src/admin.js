@@ -158,13 +158,43 @@ function limpar(tabela, corpo, id) {
     else v = semHtml(v);
     dados[campo] = v;
   }
-  /* O slug nasce do nome quando ninguém digitou um. */
+  /* ------------------------------------------------------------------------
+     O SLUG — o endereço da página
+
+     Nasce do nome quando ninguém digitou um. E, depois que a página VAI AO
+     AR, não muda mais.
+
+     A tela do painel não manda o slug (não há campo para ele), então até a
+     0.12.0 cada "Salvar" o refazia a partir do nome. Corrigir uma vírgula no
+     título de uma matéria já publicada trocava o endereço dela: o link que o
+     Google tinha e o que circulava no WhatsApp passavam a dar 404, sem aviso.
+     Com os consertos ganhando página própria (0.13.0), os seus oito
+     endereços também passaram a depender disso — "Som e microfone" nasceu com
+     o slug `alto-falante-microfone`, e o primeiro salvamento o mudaria.
+
+     Enquanto o registro não está no ar (o "Novo" que acabou de ser criado,
+     oculto), o slug acompanha o nome — é assim que "novo-3" vira
+     "troca-de-conector" quando o dono dá nome ao serviço.
+     ------------------------------------------------------------------------ */
   if (CAMPOS[tabela].includes("slug")) {
-    const nome = dados.nome || dados.titulo || corpo.nome || corpo.titulo || "";
-    const base = slugificar(dados.slug || nome);
-    dados.slug = slugLivre(tabela, base, id);
+    const antigo = id ? Q.um(`SELECT slug FROM ${tabela} WHERE id = ?`, id) : null;
+    if (antigo && antigo.slug && !dados.slug && estaNoAr(tabela, id)) {
+      delete dados.slug;
+    } else {
+      const nome = dados.nome || dados.titulo || corpo.nome || corpo.titulo || "";
+      const base = slugificar(dados.slug || nome);
+      dados.slug = slugLivre(tabela, base, id);
+    }
   }
   return dados;
+}
+
+/* O registro está no ar? "No ar" é estar no instantâneo que o site lê — e,
+   num site que nunca publicou, o rascunho ativo vale como publicado (ver
+   `atual()` em publicado.js), então o critério é o mesmo nos dois casos. */
+function estaNoAr(tabela, id) {
+  const lista = require("./publicado").atual()[tabela];
+  return Array.isArray(lista) && lista.some((r) => Number(r.id) === Number(id));
 }
 
 function listar(tabela) {

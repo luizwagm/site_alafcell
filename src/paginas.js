@@ -22,7 +22,8 @@ const L = require("./layout");
 /* Dado estruturado nao interpreta marcacao: o que for para dentro do JSON-LD
    sai como TEXTO, e um "<b>" gravado num campo do painel apareceria assim no
    resultado da busca. */
-const { semHtml } = require("./html-seguro");
+const { semHtml, emLinhas } = require("./html-seguro");
+const Orc = require("./orcamento");
 const { esc, engrenagem, zap, linhas } = L;
 
 /* ==========================================================================
@@ -63,9 +64,65 @@ const ICONES = {
   placa: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   software: '<path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="m10 11 2 2 4-4"/>',
 };
+/* OS NOMES QUE O PAINEL OFERECIA ATÉ A 0.12.0. A lista de lá tinha "som" e
+   "agua", que não existem aqui, e não tinha "audio", que é o ícone semeado de
+   "Som e microfone". Um serviço salvo com eles caía no desenho da tela. O
+   painel agora oferece os nomes daqui; estes dois continuam entendidos para
+   o que já foi gravado com eles. */
+const APELIDOS = { som: "audio", agua: "placa" };
 const icone = (chave) => `<svg class="serv__icone" viewBox="0 0 24 24" width="30" height="30"
   fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
-  stroke-linejoin="round" aria-hidden="true">${ICONES[chave] || ICONES.tela}</svg>`;
+  stroke-linejoin="round" aria-hidden="true">${ICONES[APELIDOS[chave] || chave] || ICONES.tela}</svg>`;
+
+/* ==========================================================================
+   AS CIDADES ATENDIDAS
+
+   O campo virou editor de texto na 0.8.0, e o que está gravado no banco do
+   cliente é `<p>Caruaru<br></p>`. Este site o lia com `split("\n")`, e foi
+   exatamente isso que o Google recebeu no `areaServed` da ficha — a marcação
+   inteira como nome de cidade. `emLinhas` entende as duas formas (uma cidade
+   por linha, ou por parágrafo do editor) e devolve texto puro.
+
+   Um lugar só, porque são três leitores: a ficha da loja, cada página de
+   conserto e o llms.txt.
+   ========================================================================== */
+function cidadesAtendidas() {
+  return emLinhas(txt("loja.atende", "")).split("\n")
+    .map((c) => c.trim()).filter(Boolean).slice(0, 20);
+}
+
+/* ==========================================================================
+   O CARTÃO DE UM CONSERTO
+
+   O mesmo na landing, na lista de consertos e em "outros serviços". Três
+   cópias divergiriam — e foi assim, com um cartão reaproveitado de outro
+   lugar, que o preço já ameaçou voltar para onde o cliente mandou tirar.
+
+   VOLTOU A SER LINK (0.13.0). Na 0.4.0 ele virou `<article>` porque não havia
+   para onde ir; agora cada conserto tem página própria.
+
+   A chamada entra SEM MARCAÇÃO: ela vem do editor, e um link escrito nela
+   ficaria dentro do link do cartão. Link dentro de link o navegador não
+   aceita — ele fecha o primeiro no meio e o cartão se parte em dois.
+
+   Foto só onde se pede (`foto: true`). Na landing a seção é informação, e
+   cada foto seria mais uma imagem na página mais pesada do site.
+   ========================================================================== */
+function cartaoServico(s, i = 0, { foto = false, nivel = 3 } = {}) {
+  const comFoto = foto && s.foto;
+  return `
+    <a class="cartao cartao--acende serv${comFoto ? " serv--foto" : ""}" href="/consertos/${esc(s.slug)}/" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
+      ${comFoto ? `<span class="serv__capa"><img src="${esc(s.foto)}" alt="" loading="lazy"
+        decoding="async" width="1200" height="800"></span>` : ""}
+      <span class="serv__ico">${icone(s.icone)}</span>
+      <h${nivel} class="cartao__titulo">${esc(s.nome)}</h${nivel}>
+      <p class="cartao__texto">${esc(semHtml(s.chamada))}</p>
+      <span class="serv__pe">
+        <span class="serv__prazo dado">${esc(prazoTexto(s.prazo_horas))}</span>
+        <span class="serv__ir">Ver o conserto</span>
+      </span>
+    </a>`;
+}
 
 /* ==========================================================================
    PRAZO EM PALAVRA
@@ -100,8 +157,7 @@ function home(req) {
   /* TUDO SAI DO INSTANTÂNEO. Ler as tabelas aqui faria a home mostrar o
      rascunho — e o botão de publicar deixaria de significar alguma coisa. */
   const servicos = Pub.servicos(6);
-  const marcas = Pub.marcas();
-  const populares = Pub.populares(6);
+  const total = Pub.servicos().length;
   const posts = Pub.posts(3);
 
   /* ------------------------------------------------------------------ topo */
@@ -187,10 +243,9 @@ function home(req) {
      com a rede ruim. O servidor monta a mensagem e responde um 302 — funciona
      em qualquer navegador, com ou sem script.
 
-     Os três campos são opcionais de propósito. Quem não souber dizer o modelo
-     ainda assim chega ao WhatsApp; o que faltar, o atendente pergunta. Barrar
-     o envio por causa de um campo em branco seria perder o contato para
-     proteger a completude de um texto.
+     O formulário mora em `src/orcamento.js` desde a 0.13.0: é o mesmo da
+     página /orcamento/ e de cada página de conserto. Os campos, a regra de
+     "tudo opcional" e o porquê do form GET estão explicados lá.
      ==================================================================== */
   const busca = `
 <section class="secao busca" id="orcamento">
@@ -202,42 +257,9 @@ function home(req) {
         <p class="sub">Diga o aparelho e o que houve. A gente abre a conversa no WhatsApp
           já com essas informações — você só aperta enviar.</p>
       </div>
-
-      <form class="busca__form" action="/orcamento" method="get">
-        <label class="campo">
-          <span class="campo__rot">Marca</span>
-          <select name="marca" class="campo__ent" data-busca-marca>
-            <option value="">Escolha…</option>
-            ${marcas.map((m) => `<option value="${esc(m.slug)}">${esc(m.nome)}</option>`).join("")}
-          </select>
-        </label>
-        <label class="campo">
-          <span class="campo__rot">Modelo</span>
-          <select name="modelo" class="campo__ent" data-busca-modelo>
-            <option value="">Todos os modelos</option>
-          </select>
-        </label>
-        <label class="campo">
-          <span class="campo__rot">O que houve</span>
-          <select name="servico" class="campo__ent">
-            <option value="">Escolha…</option>
-            ${servicos.map((sv) => `<option value="${esc(sv.slug)}">${esc(sv.nome)}</option>`).join("")}
-            <option value="outro">Outro problema</option>
-          </select>
-        </label>
-        <button class="btn btn--acao" type="submit">Pedir orçamento no WhatsApp</button>
-      </form>
-
-      ${populares.length ? `
-      <div class="busca__rapidos">
-        <span class="busca__rot">Mais consertados:</span>
-        ${populares.map((m) =>
-          `<a class="etiqueta" href="/orcamento?modelo=${esc(m.slug)}">${esc(m.nome)}</a>`).join("")}
-      </div>` : ""}
-
-      <p class="busca__nota">Não achou o seu? A lista tem os mais comuns —
-        <a href="${zap("Olá! Meu aparelho não está na lista do site. Pode me ajudar?")}"
-           target="_blank" rel="noopener">chame no WhatsApp</a> que a gente responde na hora.</p>
+      ${Orc.formulario()}
+      ${Orc.atalhos()}
+      ${Orc.naoAchou()}
     </div>
   </div>
 </section>`;
@@ -246,29 +268,19 @@ function home(req) {
   /* ====================================================================
      INFORMAÇÃO, E NÃO VITRINE
 
-     Esta seção mostrava preço de partida, foto e um link por serviço para uma
-     tela própria. Os três saíram: conserto de celular não tem preço de
-     tabela — depende do modelo e do que se encontra ao abrir —, e anunciar um
-     "a partir de" cria a conversa que a assistência menos quer ter, a de
-     explicar por que o valor final é outro.
+     Desde a 0.4.0 esta seção não mostra preço nem foto: conserto de celular
+     não tem preço de tabela — depende do modelo e do que se encontra ao
+     abrir —, e anunciar um "a partir de" cria a conversa que a assistência
+     menos quer ter, a de explicar por que o valor final é outro.
 
-     Sem link, o cartão deixa de ser `<a>` e vira `<article>`. Isso importa
-     mais do que parece: um `<a>` sem destino útil é uma promessa de página
-     que o visitante clica, espera e não recebe.
+     O LINK VOLTOU NA 0.13.0, porque agora existe para onde ir: cada conserto
+     tem página própria (/consertos/<nome>/), com sintomas, prazo e garantia.
+     Na 0.4.0 o cartão tinha virado `<article>` justamente por não haver
+     destino, e um `<a>` sem destino útil é promessa que o visitante clica e
+     não recebe.
 
-     O que ficou é o que a pessoa precisa para reconhecer o próprio problema
-     na lista: o nome, o que é, e o prazo de bancada.
+     A landing mostra os 6 primeiros; o botão leva à lista inteira.
      ==================================================================== */
-  const cartaoServico = (s, i) => `
-    <article class="cartao serv" data-revela${i % 3 ? ` data-revela-atraso="${i % 3}"` : ""}>
-      <span class="serv__ico">${icone(s.icone)}</span>
-      <h3 class="cartao__titulo">${esc(s.nome)}</h3>
-      <p class="cartao__texto">${s.chamada}</p>
-      <span class="serv__pe">
-        <span class="serv__prazo dado">${esc(prazoTexto(s.prazo_horas))}</span>
-      </span>
-    </article>`;
-
   const secServicos = `
 <section class="secao secao--tinta" id="consertos">
   <div class="env">
@@ -280,10 +292,13 @@ function home(req) {
         O valor sai depois de olhar o aparelho: em celular, orçamento por tabela é chute.</p>
     </header>
     <div class="grade grade--3">
-      ${servicos.map(cartaoServico).join("")}
+      ${servicos.map((s, i) => cartaoServico(s, i)).join("")}
     </div>
-    <p class="secao__mais"><a class="btn btn--acao" href="${zap("Olá! Vim pelo site e queria um orçamento.")}"
-       target="_blank" rel="noopener">Pedir orçamento no WhatsApp</a></p>
+    <p class="secao__mais secao__mais--par">
+      <a class="btn btn--acao" href="${zap("Olá! Vim pelo site e queria um orçamento.")}"
+         target="_blank" rel="noopener">Pedir orçamento no WhatsApp</a>
+      <a class="btn btn--linha" href="/consertos/">${total > servicos.length
+        ? `Ver os ${total} consertos` : "Ver os consertos"}</a></p>
   </div>
 </section>`;
 
@@ -742,8 +757,7 @@ function jsonldLoja(perguntas = []) {
      cidade onde a busca e leva vai de verdade. Uma cidade a mais aqui é uma
      viagem a mais amanhã, e quem decide isso é a loja.
      ------------------------------------------------------------------------ */
-  const cidades = txt("loja.atende", "").split("\n")
-    .map((c) => c.trim()).filter(Boolean).slice(0, 20);
+  const cidades = cidadesAtendidas();
   if (cidades.length) {
     ficha.areaServed = cidades.map((c) => ({
       "@type": "City", name: c, address: {
@@ -755,10 +769,10 @@ function jsonldLoja(perguntas = []) {
   /* ------------------------------------------------------------------------
      O CATÁLOGO DE SERVIÇOS
 
-     Os oito consertos deixaram de ter página própria na 0.4.0, e com isso
-     sumiram da leitura do buscador: ele via uma landing genérica onde havia
-     oito serviços nomeados. O catálogo devolve essa informação SEM criar
-     página nenhuma — que é exatamente a restrição do site atual.
+     Nasceu na 0.9.0 para devolver ao buscador os serviços que tinham perdido
+     a página própria na 0.4.0. Com as páginas de volta (0.13.0), cada item
+     aponta para a sua — é o mesmo serviço, dito na ficha da loja e na página
+     dele, ligado pelo `url`.
 
      Sem preço, de propósito: o cliente tirou preço de conserto do site
      inteiro, e um `Offer` com valor aqui reporia pela porta dos fundos o que
@@ -769,10 +783,13 @@ function jsonldLoja(perguntas = []) {
     ficha.hasOfferCatalog = {
       "@type": "OfferCatalog",
       name: `Consertos — ${nome}`,
+      url: `${SITE}/consertos/`,
       itemListElement: servicos.map((s) => ({
         "@type": "Offer",
         itemOffered: {
           "@type": "Service",
+          "@id": `${SITE}/consertos/${s.slug}/#servico`,
+          url: `${SITE}/consertos/${s.slug}/`,
           name: s.nome,
           /* `semHtml`: a chamada é campo formatado no painel, e marcação dentro
              de dado estruturado é lida como texto — o cliente veria "<b>" no
@@ -872,10 +889,11 @@ function erro404(req) {
     <h1 class="titulo">Esta página <em>não existe</em></h1>
     <p class="sub" style="margin-inline:auto">Ou ela mudou de endereço. Estes caminhos funcionam:</p>
     <div class="hero__acoes" style="justify-content:center">
-      <!-- Depois da 0.4.0 o site tem dois destinos, e o 404 só pode oferecer
-           esses dois. Oferecer /consertos/ e /loja/ daqui era mandar quem já
-           se perdeu para outro 404. -->
+      <!-- O 404 só oferece o que existe. Na 0.4.0 os consertos saíram daqui
+           porque tinham virado 404 também; voltaram na 0.13.0 junto com as
+           páginas. A loja continua fora. -->
       <a class="btn btn--acao" href="/">Voltar ao início</a>
+      <a class="btn btn--linha" href="/consertos/">Ver os consertos</a>
       <a class="btn btn--linha" href="/blog/">Ler o blog</a>
     </div>
   </div>
@@ -883,4 +901,5 @@ function erro404(req) {
   });
 }
 
-module.exports = { home, erro404, jsonldLoja, prazoTexto, apartirDe, icone };
+module.exports = { home, erro404, jsonldLoja, prazoTexto, apartirDe, icone,
+  cartaoServico, cidadesAtendidas };

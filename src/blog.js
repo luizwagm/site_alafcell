@@ -161,7 +161,10 @@ function materia(req, slug) {
       <div class="hero__acoes">
         <a class="btn btn--acao" href="${zap("Olá! Li uma matéria no site e queria tirar uma dúvida.")}"
            target="_blank" rel="noopener">Perguntar no WhatsApp</a>
-        <a class="btn btn--linha" href="/consertos/">Ver os preços</a>
+        <!-- Até a 0.12.0 este botão dizia "Ver os preços" e levava a
+             /consertos/, que respondia 404 desde a 0.4.0 — em toda matéria
+             do blog, em produção. A página voltou na 0.13.0, e sem preço. -->
+        <a class="btn btn--linha" href="/consertos/">Ver os consertos</a>
       </div>
     </aside>
   </div>

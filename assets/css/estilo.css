@@ -604,7 +604,12 @@ a { color: inherit; }
   display: grid; gap: .9rem; margin-top: 1.8rem; align-items: end;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
 }
-.busca__form .btn { min-height: 3rem; }
+/* O botão pode quebrar a linha AQUI. Com quatro colunas (a página do
+   orçamento tem os três campos), a coluna fica mais estreita que "PEDIR
+   ORÇAMENTO NO WHATSAPP", e o `nowrap` geral do botão fazia o texto encostar
+   nas bordas. */
+.busca__form .btn { min-height: 3rem; white-space: normal; text-align: center;
+  line-height: 1.2; padding-inline: 1rem; }
 
 .campo { display: grid; gap: .4rem; }
 .campo__rot {
@@ -649,6 +654,15 @@ textarea.campo__ent { min-height: 7rem; padding-block: .7rem; resize: vertical; 
 }
 .serv__pe .preco { font-size: 1.22rem; }
 .serv__prazo { font-size: var(--t-meta); color: var(--tinta-3); font-weight: 500; }
+/* O cartão voltou a ser link (0.13.0). A borda que acende no hover não
+   existe no toque do celular — lá é este rótulo que diz que o cartão leva a
+   algum lugar. */
+.serv__ir { font-size: var(--t-meta); font-weight: 700; color: var(--vermelho-alto); white-space: nowrap; }
+/* Margem, e não espaço dentro do `content`: em `inline-block` o espaço do
+   começo some, e a seta grudava na palavra. */
+.serv__ir::after { content: "→"; display: inline-block; margin-left: .35em; transition: translate var(--transicao); }
+.serv:hover .serv__ir::after { translate: 3px 0; }
+.secao__mais--par { display: flex; flex-wrap: wrap; gap: .7rem; }
 
 /* ==========================================================================
    BUSCA E LEVA
@@ -867,6 +881,9 @@ textarea.campo__ent { min-height: 7rem; padding-block: .7rem; resize: vertical; 
 .serv-corpo { display: grid; gap: clamp(1.4rem, 1rem + 2vw, 2.4rem);
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
 @media (max-width: 860px) { .serv-corpo { grid-template-columns: 1fr; } }
+/* A descrição virou texto do editor (div com parágrafos) na 0.13.0; o `.sub`
+   de antes trazia a distância do título consigo, o `.artigo__corpo` não. */
+.serv-corpo__texto .artigo__corpo { margin-top: 1rem; }
 
 .sintomas { list-style: none; padding: 0; display: grid; gap: .55rem; margin-top: 1rem; }
 .sintomas li {

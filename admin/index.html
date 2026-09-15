@@ -468,9 +468,10 @@ body.tem-pendencia main{padding-bottom:6rem}
     <section class="painel" id="t-consertos">
       <div class="topo"><h1>O que a gente conserta</h1>
         <button class="btn btn--acao btn--sm" onclick="novo('servicos')">+ Novo conserto</button></div>
-      <p class="dica" style="margin-bottom:1rem">Esta é a lista que aparece na seção
-        <b>“O que a gente conserta”</b> e no seletor de orçamento. O site mostra os
-        <b>6 primeiros</b> por ordem — o resto continua valendo no orçamento.
+      <p class="dica" style="margin-bottom:1rem">Cada conserto tem <b>página própria</b>
+        no site (em <b>Consertos</b>, no menu), com a descrição, os sintomas, o prazo e a
+        garantia — é ela que aparece no Google. A página inicial mostra os <b>6 primeiros</b>
+        por ordem; a lista de consertos e o seletor de orçamento mostram todos.
         <b>Não há preço:</b> o valor sai depois de olhar o aparelho.</p>
       <div id="lista-servicos"></div>
     </section>
@@ -797,6 +798,7 @@ const DADOS = { servicos: [], marcas: [], modelos: [], posts: [], avaliacoes: []
    é ela que diz o que existe — e um campo esquecido some do painel em silêncio. */
 const FORM = {
   servicos: [
+    ["slug", "Endereço da página", "endereco"],
     ["nome", "Nome do conserto", "texto"],
     ["chamada", "Frase curta (aparece no cartão)", "area"],
     ["descricao", "Descrição completa", "area"],
@@ -837,6 +839,7 @@ const FORM = {
     ["ativo", "Pode aparecer no site", "sim"],
   ],
   posts: [
+    ["slug", "Endereço da matéria", "endereco"],
     ["titulo", "Título", "texto"],
     ["resumo", "Resumo (aparece na lista)", "area"],
     ["corpo", "Texto da matéria", "area"],
@@ -848,7 +851,12 @@ const FORM = {
   ],
 };
 
-const ICONES = ["tela", "bateria", "carga", "camera", "som", "placa", "agua", "software"];
+/* OS MESMOS NOMES DO SITE (src/paginas.js → ICONES). Até a 0.12.0 esta lista
+   tinha "som" e "agua", que o site não conhece, e não tinha "audio", que é o
+   ícone de "Som e microfone": abrir esse serviço e salvar gravava "tela" sem
+   ninguém escolher. O rótulo é em português; o valor, o nome do desenho. */
+const ICONES = [["tela", "Tela"], ["bateria", "Bateria"], ["carga", "Conector de carga"],
+  ["camera", "Câmera"], ["audio", "Som e microfone"], ["placa", "Placa"], ["software", "Software"]];
 
 const rotulo = (tabela, r) => {
   if (tabela === "posts") return r.titulo || "(sem título)";
@@ -923,10 +931,25 @@ function campo(tabela, r, [nome, rot, tipo]) {
       }</select>`;
   }
   if (tipo === "icone") {
+    /* Um valor gravado que não está na lista (vindo de uma versão antiga)
+       continua como opção marcada: sumir com ele faria o select mostrar o
+       primeiro da lista, e o próximo "Salvar" trocaria o ícone em silêncio. */
+    const lista = ICONES.some(([i]) => i === v) || !v ? ICONES : [[v, v], ...ICONES];
     return `<label for="${id}">${esc(rot)}</label>
       <select id="${id}" data-campo="${nome}">${
-        ICONES.map((i) => `<option value="${i}"${i === v ? " selected" : ""}>${i}</option>`).join("")
+        lista.map(([i, r]) => `<option value="${esc(i)}"${i === v ? " selected" : ""}>${esc(r)}</option>`).join("")
       }</select>`;
+  }
+  if (tipo === "endereco") {
+    /* SÓ LEITURA, e sem `data-campo`: o endereço não é enviado ao salvar. Ele
+       nasce do nome e congela quando a página vai ao ar (ver `limpar()` em
+       src/admin.js) — trocar o endereço de uma página publicada derruba o
+       link que o Google e o WhatsApp já têm. */
+    const base = tabela === "posts" ? "/blog/" : "/consertos/";
+    return v ? `<label>${esc(rot)}</label>
+      <p class="dica" style="margin:.2rem 0 .4rem"><a href="${esc(base + v + "/")}" target="_blank"
+        rel="noopener">${esc(location.origin + base + v + "/")}</a><br>
+        Nasce do nome e não muda depois de publicado — é o link que o Google guarda.</p>` : "";
   }
   if (tipo === "imagem") {
     return `<label>${esc(rot)}</label>

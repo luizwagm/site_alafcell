@@ -263,7 +263,9 @@ const casa = Pag.home({ headers: {}, url: "/" });
 
 /* --- o que não pode estar lá --- */
 ok("nenhum preço na landing", /R\$\s?\d/.test(casa), false);
-for (const morta of ["/loja/", "/carrinho/", "/checkout/", "/consertos/",
+/* `/consertos/` saiu desta lista na 0.13.0: a página voltou (sem preço), e o
+   link para ela é o que se quer. As outras continuam mortas. */
+for (const morta of ["/loja/", "/carrinho/", "/checkout/",
                      "/busca-e-leva/", "/acompanhar/", "/contato/", "/produto/"]) {
   ok(`sem link para ${morta}`, casa.includes(`href="${morta}`), false);
 }
@@ -278,16 +280,26 @@ for (const id of ["orcamento", "consertos", "busca-e-leva", "como-funciona",
 }
 /* O menu promete essas âncoras em toda página do site. Âncora prometida que
    não existe rola até o fim sem parar em nada, e parece link quebrado. */
-verdade("o formulário de orçamento aponta para a rota do WhatsApp",
-  casa.includes('action="/orcamento"'));
+verdade("o formulário de orçamento aponta para o desvio do WhatsApp",
+  casa.includes('action="/orcamento/whatsapp"'));
 verdade("a landing chama o WhatsApp", casa.includes("wa.me/"));
 
 /* --- a seção de consertos é informação, não vitrine --- */
 const secao = casa.slice(casa.indexOf('id="consertos"'), casa.indexOf('id="busca-e-leva"'));
-verdade("há cartões de conserto na seção", secao.includes('class="cartao serv"'));
 /* `<a\s`, com o espaço exigido: sem ele o `<a` casa com o começo de
-   "<article" e a prova acusa link onde há um cartão inerte. */
-ok("nenhum cartão de conserto é link", /<a\s[^>]*class="[^"]*\bserv\b/.test(secao), false);
+   "<article" e a prova acusaria link onde há um cartão inerte. */
+const cartoesServ = [...secao.matchAll(/<a\s[^>]*class="[^"]*\bserv\b[^"]*"[^>]*>/g)].map((m) => m[0]);
+verdade("há cartões de conserto na seção", cartoesServ.length > 0);
+/* Desde a 0.13.0 cada cartão LEVA à página do serviço — e só a página de um
+   serviço que existe no ar. Um cartão apontando para rascunho é um 404 com
+   cara de link. */
+const slugsNoAr = require("../src/publicado").servicos().map((s) => s.slug);
+ok("todo cartão leva à página de um serviço publicado",
+  cartoesServ.filter((a) => {
+    const m = /href="\/consertos\/([^/"]+)\/"/.exec(a);
+    return !m || !slugsNoAr.includes(m[1]);
+  }).length, 0);
+verdade("e a seção oferece a lista inteira", secao.includes('href="/consertos/"'));
 ok("nenhuma foto na seção de consertos", secao.includes("<img"), false);
 ok("nenhum 'a partir de' na seção", /a partir de/i.test(secao), false);
 
@@ -298,7 +310,7 @@ verdade("o passo 2 diz que a gente busca OU o cliente traz",
 /* --- o 404 só oferece o que existe --- */
 const erro = Pag.erro404({ headers: {}, url: "/nao-existe" });
 ok("o 404 não manda para a loja", erro.includes('href="/loja/"'), false);
-ok("o 404 não manda para os consertos", erro.includes('href="/consertos/"'), false);
+verdade("o 404 manda para os consertos, que voltaram a existir", erro.includes('href="/consertos/"'));
 verdade("o 404 oferece o início", erro.includes('href="/"'));
 
 /* ==========================================================================
@@ -1274,6 +1286,209 @@ verdade("o site sabe dizer quando mudou", !!Pub.quando());
 Q.roda("DELETE FROM faq");
 Adm.gravarTextos({ "loja.atende": "" });
 Pub.publicar("ZZ QA");
+
+/* ==========================================================================
+   CONSERTOS E ORÇAMENTO COM PÁGINA PRÓPRIA (0.13.0)
+
+   As páginas voltaram, e o preço NÃO. As provas que mais importam aqui são as
+   do que não pode aparecer — e elas só valem porque o banco de prova TEM
+   preço cadastrado (o material de demonstração semeia): numa base sem preço,
+   "nenhum R$ na página" passaria por falta de dado, não por decisão.
+   ========================================================================== */
+grupo("Consertos e orçamento (0.13.0)");
+
+const Cons = require("../src/consertos");
+const Orc = require("../src/orcamento");
+const Lay = require("../src/layout");
+const req0 = { headers: {}, url: "/" };
+const ldDe = (html) => JSON.parse(
+  /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)[1])["@graph"];
+const doTipo = (g, t) => g.find((n) => JSON.stringify(n["@type"]).includes(t));
+const umH1 = (html) => (html.match(/<h1\b/g) || []).length === 1;
+const limpoDePreco = (html) => !/R\$\s?\d/.test(html) && !/a partir de/i.test(html);
+
+Pub.publicar("ZZ QA");
+const noAr = Pub.servicos();
+verdade("há serviços publicados para provar", noAr.length > 0);
+verdade("e há preço no banco (senão 'sem preço' não provaria nada)",
+  Q.um("SELECT COUNT(*) c FROM precos WHERE preco > 0").c > 0);
+
+/* --- a lista --- */
+const listaHtml = Cons.lista(req0);
+verdade("a lista não mostra preço", limpoDePreco(listaHtml));
+ok("todo serviço publicado tem link na lista",
+  noAr.filter((s) => !listaHtml.includes(`href="/consertos/${s.slug}/"`)).map((s) => s.slug), []);
+verdade("com canonical próprio",
+  listaHtml.includes(`<link rel="canonical" href="${Endereco.SITE}/consertos/">`));
+verdade("e um h1 só", umH1(listaHtml));
+ok("o dado estruturado lista cada serviço",
+  ((doTipo(ldDe(listaHtml), "CollectionPage") || {}).mainEntity || { itemListElement: [] })
+    .itemListElement.length, noAr.length);
+
+/* --- a página de cada serviço --- */
+const problemas = [];
+for (const s of noAr) {
+  const h = Cons.servico(req0, s.slug);
+  if (!h) { problemas.push(`${s.slug}: não abre`); continue; }
+  if (!limpoDePreco(h)) problemas.push(`${s.slug}: mostra preço`);
+  if (!h.includes(`<link rel="canonical" href="${Endereco.SITE}/consertos/${s.slug}/">`))
+    problemas.push(`${s.slug}: canonical`);
+  if (!umH1(h)) problemas.push(`${s.slug}: h1`);
+  /* A ferramenta de orçamento ocupa o lugar da tabela de preço, já com o
+     serviço escolhido — é o que a pessoa que leu a página até ali precisa. */
+  if (!h.includes(`name="servico" value="${s.slug}"`)) problemas.push(`${s.slug}: orçamento sem o serviço`);
+  if (!h.includes('action="/orcamento/whatsapp"')) problemas.push(`${s.slug}: orçamento sem o desvio`);
+  /* /busca-e-leva/ é 404 desde a 0.4.0 — a faixa antiga levava para lá. */
+  if (h.includes('href="/busca-e-leva/"')) problemas.push(`${s.slug}: link morto`);
+  const g = ldDe(h);
+  const sv = doTipo(g, "Service");
+  if (!sv) problemas.push(`${s.slug}: sem Service`);
+  else {
+    if (sv.offers) problemas.push(`${s.slug}: Offer declarada`);
+    if (sv.url !== `${Endereco.SITE}/consertos/${s.slug}/`) problemas.push(`${s.slug}: url do Service`);
+    if (/[<>]/.test(JSON.stringify([sv.name, sv.description, sv.areaServed])))
+      problemas.push(`${s.slug}: marcação no dado`);
+  }
+  if (((doTipo(g, "BreadcrumbList") || {}).itemListElement || []).length !== 3)
+    problemas.push(`${s.slug}: migalha`);
+}
+ok("toda página de serviço abre, sem preço, com canonical, h1, orçamento e dado limpo",
+  problemas, []);
+ok("serviço inexistente não abre", Cons.servico(req0, "zz-nao-existe"), null);
+ok("nem um caminho forjado", Cons.servico(req0, "../admin"), null);
+
+/* --- o rascunho não abre por porta lateral --- */
+const zzId = Adm.gravar("servicos", 0, {
+  nome: "ZZ QA Rascunho",
+  chamada: '<p>ZZ <b>chamada</b> <a href="/zz-link-interno">com link</a></p>',
+  descricao: "<p>ZZ descrição <strong>formatada</strong></p>",
+  sintomas: "<ul><li>ZZ sintoma um</li><li>ZZ sintoma dois</li></ul>",
+  ativo: "1",
+}).id;
+CRIADO.servicos = [zzId];
+const zzSlug = Q.um("SELECT slug FROM servicos WHERE id = ?", zzId).slug;
+ok("ativo e ainda NÃO publicado: a página não abre", Cons.servico(req0, zzSlug), null);
+ok("nem aparece na lista", Cons.lista(req0).includes(`/consertos/${zzSlug}/`), false);
+Pub.publicar("ZZ QA");
+const zzHtml = Cons.servico(req0, zzSlug) || "";
+verdade("publicado: abre", zzHtml.length > 0);
+verdade("os sintomas escritos em lista pelo editor viram itens",
+  zzHtml.includes("<li>ZZ sintoma um</li>") && zzHtml.includes("<li>ZZ sintoma dois</li>"));
+verdade("a descrição sai formatada", zzHtml.includes("<strong>formatada</strong>"));
+/* Os serviços semeados são texto puro, e a conferência de marcação lá em cima
+   passaria mesmo sem filtro nenhum. Este tem HTML de editor em tudo. */
+const ldZZ = zzHtml ? doTipo(ldDe(zzHtml), "Service") || {} : {};
+ok("no dado estruturado, a descrição do editor vira texto",
+  [/[<>]/.test(ldZZ.description || "<"), (ldZZ.description || "").includes("ZZ descrição formatada")],
+  [false, true]);
+ok("e a descrição da página (meta) também",
+  /<meta name="description" content="[^"]*(&lt;|<)/.test(zzHtml), false);
+/* Link dentro de link o navegador não aceita: ele fecha o cartão no meio. */
+const cartaoZZ = (Cons.lista(req0).split(`href="/consertos/${zzSlug}/"`)[1] || "").split("</a>")[0];
+ok("a chamada com link não põe link dentro do cartão", cartaoZZ.includes("zz-link-interno"), false);
+
+/* --- o endereço não muda depois de publicado --- */
+Adm.gravar("servicos", zzId, { nome: "ZZ QA Nome Corrigido", ativo: "1" });
+ok("no ar, renomear NÃO troca o endereço",
+  Q.um("SELECT slug FROM servicos WHERE id = ?", zzId).slug, zzSlug);
+const novoId = Adm.gravar("servicos", 0, { nome: "Novo", ativo: "0" }).id;
+CRIADO.servicos.push(novoId);
+Adm.gravar("servicos", novoId, { nome: "ZZ QA Batizado", ativo: "0" });
+ok("fora do ar, o endereço acompanha o nome",
+  Q.um("SELECT slug FROM servicos WHERE id = ?", novoId).slug, "zz-qa-batizado");
+const postId = Adm.gravar("posts", 0, { titulo: "ZZ QA Matéria", publicado: "1", data: "2026-09-15" }).id;
+Pub.publicar("ZZ QA");
+Adm.gravar("posts", postId, { titulo: "ZZ QA Matéria com o título corrigido", publicado: "1" });
+ok("matéria publicada: corrigir o título não derruba o link",
+  Q.um("SELECT slug FROM posts WHERE id = ?", postId).slug, "zz-qa-materia");
+
+/* --- a mensagem do WhatsApp --- */
+const marca1 = Pub.marcas().find((m) => Pub.modelos().some((x) => x.marca_slug === m.slug));
+const modelo1 = Pub.modelos().find((m) => m.marca_slug === marca1.slug);
+const deOutra = Pub.modelos().find((m) => m.marca_slug !== marca1.slug);
+const sv1 = noAr[0];
+const msg1 = Orc.mensagem({ marca: marca1.slug, modelo: modelo1.slug, servico: sv1.slug });
+verdade("a mensagem leva aparelho e serviço pelos NOMES",
+  msg1.includes(`${marca1.nome} ${modelo1.nome}`) && msg1.includes(sv1.nome));
+verdade("só o modelo (atalho 'mais consertados'): a marca é deduzida",
+  Orc.mensagem({ modelo: modelo1.slug }).includes(`${marca1.nome} ${modelo1.nome}`));
+ok("nada cadastrado, nada no texto",
+  Orc.mensagem({ marca: "zz<b>", modelo: "zz", servico: "zz" }),
+  "Olá! Vim pelo site e queria um orçamento. Pode me ajudar?");
+verdade("'outro' vira 'Outro problema'", Orc.mensagem({ servico: "outro" }).includes("Outro problema"));
+const mdRasc = Adm.gravar("modelos", 0,
+  { nome: "ZZ QA Fone Rascunho", marca_id: String(marca1.id), ativo: "1" }).id;
+CRIADO.modelos = [mdRasc];
+ok("modelo ainda não publicado não entra na mensagem",
+  Orc.mensagem({ modelo: Q.um("SELECT slug FROM modelos WHERE id = ?", mdRasc).slug })
+    .includes("ZZ QA Fone"), false);
+
+/* --- a página do orçamento --- */
+const pOrc = Orc.pagina(req0, {});
+verdade("a página do orçamento não mostra preço", limpoDePreco(pOrc));
+verdade("tem canonical próprio", pOrc.includes(`<link rel="canonical" href="${Endereco.SITE}/orcamento/">`));
+verdade("e um h1 só", umH1(pOrc));
+verdade("o formulário manda para o desvio", pOrc.includes('action="/orcamento/whatsapp"'));
+ok("e liga para a página de cada serviço",
+  noAr.filter((s) => !pOrc.includes(`href="/consertos/${s.slug}/"`)).map((s) => s.slug), []);
+const pPre = Orc.pagina(req0, { marca: marca1.slug, modelo: modelo1.slug, servico: sv1.slug });
+verdade("?marca= pré-seleciona a marca", pPre.includes(`value="${marca1.slug}" selected`));
+/* Sem script, o seletor de modelo só se enche se o servidor imprimir. */
+verdade("e o servidor imprime os modelos dela, com o escolhido marcado",
+  pPre.includes(`value="${modelo1.slug}" selected`));
+verdade("e o serviço", pPre.includes(`value="${sv1.slug}" selected`));
+verdade("o canonical continua o endereço limpo",
+  pPre.includes(`<link rel="canonical" href="${Endereco.SITE}/orcamento/">`));
+ok("modelo de outra marca não é marcado",
+  Orc.pagina(req0, { marca: marca1.slug, modelo: deOutra.slug }).includes(`value="${deOutra.slug}" selected`), false);
+ok("query com marcação não entra na página",
+  Orc.pagina(req0, { marca: '"><script>alert(1)</script>' }).includes("<script>alert(1)"), false);
+
+/* --- o formulário é um só, e oferece tudo --- */
+const casa13 = Pag.home(req0);
+const iForm = casa13.indexOf('action="/orcamento/whatsapp"');
+const formCasa = casa13.slice(iForm, casa13.indexOf("</form>", iForm));
+/* Até a 0.12.0 o da landing oferecia só os 6 dos cartões, e o painel
+   prometia que "o resto continua valendo no orçamento". */
+ok("o formulário da landing oferece TODOS os consertos",
+  noAr.filter((s) => !formCasa.includes(`value="${s.slug}"`)).map((s) => s.slug), []);
+verdade("o modelo em branco diz que é opcional", formCasa.includes("Não sei o modelo"));
+
+/* --- o bloco de dados não se fecha por dentro --- */
+const pgLd = Lay.pagina({ req: req0, titulo: "ZZ", corpo: "",
+  jsonld: { t: "</script><img src=x onerror=alert(1)>" } });
+ok("'</script>' num campo não fecha o bloco de dados", pgLd.includes("</script><img"), false);
+ok("e o dado continua o mesmo para quem lê",
+  JSON.parse(/ld\+json">([\s\S]*?)<\/script>/.exec(pgLd)[1]).t, "</script><img src=x onerror=alert(1)>");
+
+/* --- as cidades gravadas pelo editor (o defeito de produção) --- */
+/* Em alafcell.com.br o `areaServed` saiu com "<p>Caruaru<br></p>" como nome de
+   cidade. Grava-se aqui do jeito que o editor grava. */
+ajuste("loja.atende", "<p>ZZ Caruaru<br>ZZ Toritama</p><p>ZZ Bezerros</p>");
+Pub.publicar("ZZ QA");
+ok("as cidades do editor viram três nomes limpos",
+  Pag.cidadesAtendidas(), ["ZZ Caruaru", "ZZ Toritama", "ZZ Bezerros"]);
+ok("a ficha da loja não leva marcação no areaServed",
+  /[<>]/.test(JSON.stringify((doTipo(ldDe(Pag.home(req0)), "LocalBusiness") || {}).areaServed || "x<")), false);
+ok("a página do serviço diz as mesmas cidades",
+  ((doTipo(ldDe(Cons.servico(req0, sv1.slug)), "Service") || {}).areaServed || []).map((c) => c.name),
+  ["ZZ Caruaru", "ZZ Toritama", "ZZ Bezerros"]);
+verdade("e o llms.txt também", require("../src/llms").llms().includes("ZZ Caruaru, ZZ Toritama, ZZ Bezerros"));
+
+/* --- os ícones com os nomes que o painel oferecia --- */
+ok("ícone gravado como 'som' mostra o desenho de som", Pag.icone("som"), Pag.icone("audio"));
+ok("'agua' mostra a placa", Pag.icone("agua"), Pag.icone("placa"));
+
+/* Faxina — pelo ID, nunca por LIKE */
+for (const id of CRIADO.servicos) Q.roda("DELETE FROM servicos WHERE id = ?", id);
+for (const id of CRIADO.modelos) Q.roda("DELETE FROM modelos WHERE id = ?", id);
+Q.roda("DELETE FROM posts WHERE id = ?", postId);
+ajuste("loja.atende", "");
+Pub.publicar("ZZ QA");
+ok("o grupo não deixou nada para trás",
+  Q.um(`SELECT (SELECT COUNT(*) FROM servicos WHERE nome LIKE 'ZZ QA%')
+             + (SELECT COUNT(*) FROM modelos WHERE nome LIKE 'ZZ QA%')
+             + (SELECT COUNT(*) FROM posts WHERE titulo LIKE 'ZZ QA%') c`).c, 0);
 
 /* ========================================================================== */
 console.log(`\n  ${falhou ? "✖" : "✔"} ${passou} passaram, ${falhou} falharam · ${grupos.length} grupos\n`);

@@ -85,21 +85,31 @@
      MARCA → MODELO
 
      O segundo seletor é preenchido depois de escolher a marca. Sem script, ele
-     continua ali com "Todos os modelos" e o formulário funciona — a página de
-     consertos aceita só a marca.
+     continua ali com "Não sei o modelo" e o formulário funciona — a mensagem
+     sai só com a marca.
 
      A lista vem por fetch e não impressa no HTML: são mais de quarenta modelos
      hoje e a tendência é crescer, e despejar todos em cada página custaria
-     peso em toda visita para servir a uma minoria que usa o filtro.
+     peso em toda visita para servir a uma minoria que usa o filtro. (Quando a
+     página chega com a marca já escolhida, o servidor imprime os modelos
+     DELA — é o caso de quem não tem script.)
+
+     UM PAR POR FORMULÁRIO. Até a 0.12.0 isto pegava o primeiro seletor da
+     página, e só existia um. A página de um conserto tem o dela e a landing
+     tem o dela; ligar só o primeiro deixaria um segundo formulário com o
+     modelo eternamente vazio.
      ========================================================================== */
-  const selMarca = $("[data-busca-marca]");
-  const selModelo = $("[data-busca-modelo]");
-  if (selMarca && selModelo) {
+  document.querySelectorAll("form").forEach(function (form) {
+    const selMarca = form.querySelector("[data-busca-marca]");
+    const selModelo = form.querySelector("[data-busca-modelo]");
+    if (!selMarca || !selModelo) return;
+
     const encher = function (lista, escolhido) {
-      selModelo.innerHTML = '<option value="">Todos os modelos</option>'
+      selModelo.innerHTML = '<option value="">Não sei o modelo</option>'
         + lista.map((m) =>
-            '<option value="' + m.slug + '"' + (m.slug === escolhido ? " selected" : "") + '>'
-            + m.nome.replace(/[<>&]/g, "") + "</option>").join("");
+            '<option value="' + String(m.slug).replace(/[^a-z0-9-]/g, "") + '"'
+            + (m.slug === escolhido ? " selected" : "") + '>'
+            + String(m.nome).replace(/[<>&]/g, "") + "</option>").join("");
     };
 
     selMarca.addEventListener("change", function () {
@@ -109,13 +119,13 @@
       fetch("/api/modelos?marca=" + encodeURIComponent(marca))
         .then((r) => (r.ok ? r.json() : { modelos: [] }))
         .then((d) => encher(d.modelos || []))
-        /* Falhou a rede? O seletor volta vazio com "Todos os modelos", e o
-           formulário continua enviando a marca. Perde-se o refino, não a
-           busca. */
+        /* Falhou a rede? O seletor volta vazio com "Não sei o modelo", e o
+           formulário continua enviando a marca. Perde-se o refino, não o
+           pedido. */
         .catch(() => encher([]))
         .finally(() => { selModelo.disabled = false; });
     });
-  }
+  });
 })();
 
 /* ==========================================================================

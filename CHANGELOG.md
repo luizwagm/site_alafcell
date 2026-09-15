@@ -4,6 +4,123 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.13.0 — 15/09/2026 — CADA CONSERTO COM A SUA PÁGINA, E O ORÇAMENTO TAMBÉM
+
+Pedido do cliente: uma tela com a lista de serviços, uma tela por serviço com
+endereço amigável e no sitemap, e o mesmo para a ferramenta de orçamento.
+
+### Por que isso muda a busca
+
+Desde a 0.4.0 a landing era **uma** página disputando com franquias que têm
+uma por serviço. Quem digita "troca de tela caruaru" ou "celular não carrega"
+cai na página da franquia que fala só daquilo. Agora cada conserto tem
+endereço, título, descrição, dado estruturado e lugar no sitemap próprios.
+
+| endereço | o que é |
+|---|---|
+| `/consertos/` | a lista, com os 8 consertos (a landing mostra 6) |
+| `/consertos/troca-de-tela/` (e os outros 7) | sintomas, como a gente faz, prazo de bancada, garantia do serviço, e a ferramenta de orçamento **já com o serviço escolhido** |
+| `/orcamento/` | a ferramenta, as 4 etapas (as mesmas da landing, do painel) e por que não há preço na tela |
+
+O menu ganhou **Consertos** e **Orçamento** como páginas. Os cartões da landing
+e a lista do rodapé voltaram a ser links. O `llms.txt` lista cada conserto com
+o link dele.
+
+### O que NÃO voltou: o preço
+
+O `consertos.js` foi reescrito. Até a 0.3 ele desenhava tabela de preço por
+aparelho, página por marca e página por modelo. A decisão do cliente na 0.4.0
+continua valendo: nenhuma tela mostra preço, e no dado estruturado não há
+`Offer` com valor. No lugar da tabela entrou a ferramenta de orçamento.
+Páginas por marca e por modelo também não voltaram. Sem preço, seriam a
+mesma página com o nome do aparelho trocado, o que o Google chama de
+*doorway page* e pune.
+
+Tudo sai do **instantâneo publicado**. Um serviço escrito e não publicado não
+abre pelo endereço direto, não entra na lista nem no sitemap.
+
+### O orçamento deixou de dividir o endereço com o desvio
+
+| | até a 0.12.0 | agora |
+|---|---|---|
+| a página | não existia | `/orcamento/` (indexada) |
+| o desvio para o WhatsApp | `/orcamento?…` | `/orcamento/whatsapp?…` |
+| `/orcamento?…` (endereço antigo) | desvio | **continua desviando**, porque página em cache e link colado num grupo não podem quebrar |
+| `/orcamento` sem nada | desvio com "Pode me ajudar?" | vai para a página |
+
+⚠ **O `robots.txt` proíbe por prefixo.** A regra antiga, `Disallow:
+/orcamento`, tiraria a página nova do Google junto com o desvio, sem erro
+nenhum. Agora são duas regras estreitas (`/orcamento/whatsapp` e
+`/orcamento?`). A prova aplica as regras como o robô aplica e pergunta caminho
+por caminho.
+
+O formulário virou **um só** (`src/orcamento.js`), usado na landing, na página
+do orçamento e em cada conserto. O modelo em branco se chama "Não sei o
+modelo", para deixar claro que o campo é opcional.
+
+### Defeitos achados no caminho (em produção)
+
+- **Todo botão "Ver os preços" do blog levava a um 404.** O fim de cada
+  matéria apontava para `/consertos/`, removida na 0.4.0. Agora o botão diz
+  "Ver os consertos" e a página existe.
+- **O formulário da landing oferecia só 6 dos 8 consertos**, os mesmos dos
+  cartões, enquanto o painel prometia que "o resto continua valendo no
+  orçamento". Agora oferece todos.
+- **O `areaServed` da ficha da loja chegava ao Google com marcação.** Em
+  alafcell.com.br ele saiu como `"<p>Caruaru<br></p>"`. O campo das cidades
+  virou editor na 0.8.0 e era lido com `split("\n")`. Agora a leitura é uma
+  só (`cidadesAtendidas()`), usada pela ficha, pelas páginas de conserto e
+  pelo `llms.txt`, e entende linha, parágrafo e lista.
+- **Salvar um item publicado trocava o endereço dele.** A tela do painel não
+  manda o slug, e cada "Salvar" o refazia a partir do nome. Corrigir o título
+  de uma matéria publicada derrubava o link que o Google e o WhatsApp tinham.
+  Com as páginas novas, o primeiro salvamento de "Som e microfone" trocaria
+  `alto-falante-microfone` por `som-e-microfone`. Agora o endereço **congela
+  quando o item vai ao ar**. Enquanto está oculto, ele acompanha o nome, que é
+  como o "Novo" vira "troca-de-conector". O painel mostra o endereço, só
+  para leitura, com o link.
+- **O ícone de "Som e microfone" virava tela ao salvar.** A lista do painel
+  tinha `som` e `agua`, que o site não conhece, e não tinha `audio`. O select
+  abria no primeiro item e o Salvar gravava "tela". Agora a lista do painel é
+  a do site, com rótulos em português. Valores antigos continuam entendidos e
+  não somem do select.
+- **O seletor de modelos só funcionava no primeiro formulário da página.**
+  Agora é um por formulário. A página do serviço tem o dela.
+- **O botão do formulário encostava o texto nas bordas** quando a coluna
+  ficava estreita (4 colunas). Agora ele pode quebrar a linha.
+
+### Segunda tranca no bloco de dados
+
+`JSON.stringify` não escapa `<`. Um `</script>` que chegasse a qualquer campo
+do JSON-LD fecharia o bloco. O filtro da gravação já impedia; agora o `<` sai
+como `<`, que é JSON válido e o buscador lê igual.
+
+### Operação
+
+- O `verificar.sh` cobrava `/consertos/` como **404 obrigatório** e acusaria
+  falha na primeira conferência depois da entrega. Agora ela está na lista do
+  que tem de responder 200. O verificador também confere que a página **não
+  mostra preço** e que `/orcamento/whatsapp` redireciona.
+- Nada muda no servidor: sem variável nova, sem migração. As colunas usadas
+  (`descricao`, `sintomas`, `garantia_dias`, `foto`) já estavam no banco e no
+  instantâneo.
+
+### Provas
+
+- **325** na suíte (eram 277) e **64** nas rotas com o servidor de verdade
+  (eram 49).
+- As rotas agora conferem, em **toda** página do sitemap: canonical próprio, um
+  `h1`, JSON-LD que abre e nenhum preço.
+- **14 sabotagens, 14 pegas.** Entre elas: o preço voltando, o robots antigo,
+  a página lendo o rascunho, o slug seguindo o nome, as cidades pelo
+  `split`, o formulário com 6 serviços e a descrição do `Service` sem filtro.
+- Uma prova estava cega e foi refeita. A conferência de marcação no dado
+  estruturado rodava só nos serviços semeados, que são texto puro, e passaria
+  sem filtro nenhum. Agora roda também num serviço ZZ com HTML de editor em
+  todos os campos.
+
+---
+
 ## 0.12.0 — 07/09/2026 — VARREDURA DE SEO: as palavras, a ficha e as IAs
 
 Auditoria com medição, não com checklist. Três achados que valiam a rodada.

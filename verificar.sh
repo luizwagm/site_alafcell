@@ -87,15 +87,30 @@ azul "Páginas"
 # /contato/ e /acompanhar/ — removidos de propósito quando o site virou landing
 # — e acusava 8 problemas onde não havia nenhum. Verificador que grita sempre é
 # verificador que ninguém lê, e o problema de verdade passa no meio dos falsos.
-for R in / /blog/ /privacidade/ /saude /robots.txt /sitemap.xml; do
+for R in / /consertos/ /orcamento/ /blog/ /privacidade/ /saude /robots.txt /sitemap.xml; do
   C=$(codigo "$R")
   if [ "$C" = "200" ]; then verde "$R"; else falha "$R respondeu $C"; fi
 done
 
+# /consertos/ VOLTOU na 0.13.0 — e SEM preço, que continua fora do site por
+# decisão do cliente (0.4.0). Até a 0.12.0 ela estava na lista de 404 abaixo;
+# o que se cobra agora é o que ela não pode ter. Um "R$" ali é a tabela antiga
+# voltando pela porta dos fundos.
+LISTA_HTML=$(pega "/consertos/")
+if echo "$LISTA_HTML" | grep -qiE 'R\$ ?[0-9]|a partir de'; then
+  falha "/consertos/ mostra PREÇO — o cliente tirou preço de conserto do site (0.4.0)"
+else
+  verde "/consertos/ sem preço na tela"
+fi
+# O desvio do orçamento responde com o WhatsApp, e não com uma página.
+C=$(codigo "/orcamento/whatsapp")
+case "$C" in 30*) verde "/orcamento/whatsapp desvia para o WhatsApp ($C)" ;;
+  *) falha "/orcamento/whatsapp respondeu $C (devia redirecionar para o WhatsApp)" ;; esac
+
 # As rotas removidas não saem da conferência: viram a lista do que TEM de
 # responder 404. Uma delas voltando a responder 200 é loja reaberta sem querer
-# — com carrinho, checkout e preço de conserto na tela.
-for R in /consertos/ /loja/ /carrinho/ /checkout/ /contato/ /acompanhar/; do
+# — com carrinho e checkout na tela.
+for R in /loja/ /carrinho/ /checkout/ /contato/ /acompanhar/; do
   C=$(codigo "$R")
   if [ "$C" = "404" ]; then verde "$R continua fora (404)"
   else falha "$R respondeu $C — esta rota foi REMOVIDA na 0.4.0 e não deveria existir"; fi

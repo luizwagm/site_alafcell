@@ -124,19 +124,21 @@ function cabecalho(atual = "", req = null) {
     <a href="/" class="topo__marca" aria-label="${esc(txt("marca.nome", "Alafcell Assistec"))} — página inicial">${marca()}</a>
 
     <!-- ====================================================================
-         O MENU APONTA PARA DENTRO DA PRÓPRIA PÁGINA
+         PÁGINAS E SEÇÕES
 
-         O site virou uma landing: consertos, busca e leva e contato são SEÇÕES
-         de "/", não telas. Só o blog continua sendo página de verdade, porque
-         cada matéria precisa de endereço próprio para ser compartilhada.
+         Consertos e Orçamento são PÁGINAS desde a 0.13.0 — e o menu é o link
+         interno que mais pesa para o buscador: página que só o rodapé cita é
+         página que ele considera secundária. Busca e leva e contato continuam
+         SEÇÕES da landing.
 
-         As âncoras levam a barra ("/#consertos" e não "#consertos") de
-         propósito: assim o mesmo menu funciona quando alguém está lendo uma
-         matéria do blog — sem a barra, o link procuraria a seção dentro da
-         matéria e não sairia do lugar.
+         As âncoras levam a barra ("/#busca-e-leva" e não "#busca-e-leva") de
+         propósito: assim o mesmo menu funciona em qualquer página — sem a
+         barra, o link procuraria a seção dentro da página atual e não sairia
+         do lugar.
          ==================================================================== -->
     <nav class="nav" aria-label="Principal">
-      ${item("/#consertos", "Consertos", "consertos")}
+      ${item("/consertos/", "Consertos", "consertos")}
+      ${item("/orcamento/", "Orçamento", "orcamento")}
       ${item("/#busca-e-leva", "Busca e leva", "coleta")}
       ${item("/blog/", "Blog", "blog")}
       ${item("/#contato", "Contato", "contato")}
@@ -157,7 +159,8 @@ function cabecalho(atual = "", req = null) {
   <!-- Menu do celular: os mesmos itens. Duplicar a lista em dois lugares é
        como um site ganha um link a mais no desktop que não existe no celular. -->
   <nav class="nav-movel" id="nav-movel" hidden aria-label="Principal (celular)">
-    <a href="/#consertos">Consertos</a>
+    <a href="/consertos/">Consertos</a>
+    <a href="/orcamento/">Orçamento</a>
     <a href="/#busca-e-leva">Busca e leva</a>
     <a href="/#como-funciona">Como funciona</a>
     <a href="/blog/">Blog</a>
@@ -199,21 +202,21 @@ function rodape() {
         </div>
       </div>
 
-      <!-- Os consertos NÃO têm mais link para tela própria: a lista aqui é
-           informação, e o destino de todos é a seção da landing. Manter um
-           link por serviço apontando para o mesmo lugar seria prometer sete
-           páginas que não existem. -->
+      <!-- Cada conserto volta a ter link para a PRÓPRIA página (0.13.0). Na
+           0.4.0 eles eram texto solto, porque o único destino possível era a
+           seção da landing — sete links para o mesmo lugar. -->
       <nav class="rodape__col" aria-labelledby="rf-serv">
         <h2 class="rodape__tit" id="rf-serv">O que a gente conserta</h2>
         <ul>${servicos.map((s) =>
-          `<li>${esc(s.nome)}</li>`).join("")}
-          <li><a href="/#consertos">Ver a lista completa</a></li>
+          `<li><a href="/consertos/${esc(s.slug)}/">${esc(s.nome)}</a></li>`).join("")}
+          <li><a href="/consertos/">Ver a lista completa</a></li>
         </ul>
       </nav>
 
       <nav class="rodape__col" aria-labelledby="rf-emp">
         <h2 class="rodape__tit" id="rf-emp">A Alafcell</h2>
         <ul>
+          <li><a href="/orcamento/">Pedir orçamento</a></li>
           <li><a href="/#busca-e-leva">Busca e leva</a></li>
           <li><a href="/#como-funciona">Como funciona</a></li>
           <li><a href="/#garantia">Garantia</a></li>
@@ -295,6 +298,13 @@ function pagina({ titulo, descricao, corpo, atual = "", canonical = "/",
   const nome = txt("marca.nome", "Alafcell Assistec");
   const tit = titulo ? `${titulo} — ${nome}` : `${nome} — Assistência técnica de celular em Caruaru`;
   const og = imagem ? (imagem.startsWith("http") ? imagem : SITE + imagem) : SITE + "/assets/img/og.png";
+  /* "<" VIRA < DENTRO DO BLOCO DE DADOS. `JSON.stringify` não escapa o
+     sinal de menor, e um "</script>" gravado em qualquer campo que chegue ao
+     JSON-LD (a resposta do FAQ vai com marcação, de propósito) fecharia o
+     bloco — o resto viraria HTML da página. O filtro da gravação já impede;
+     esta é a segunda tranca, e não custa nada: < é JSON válido e o
+     buscador lê igual. */
+  const dados = jsonld ? JSON.stringify(jsonld).replace(/</g, "\\u003c") : "";
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -355,7 +365,7 @@ ${CABECALHO_ROBOS ? `<!-- Endereço de TRABALHO: fora do índice. A etiqueta aco
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@600;800&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="/assets/css/estilo.css">
 ${css}
-${jsonld ? `<script type="application/ld+json">${JSON.stringify(jsonld)}</script>` : ""}
+${dados ? `<script type="application/ld+json">${dados}</script>` : ""}
 ${Medicao.cabeca()}
 </head>
 <body>

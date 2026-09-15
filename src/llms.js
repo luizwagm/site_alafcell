@@ -34,6 +34,7 @@ const { txt } = require("./db");
 const Pub = require("./publicado");
 const { semHtml, emLinhas } = require("./html-seguro");
 const { SITE } = require("./endereco");
+const { cidadesAtendidas } = require("./paginas");
 
 /* Um campo só entra se estiver preenchido de verdade — o texto de espera
    ("preencha no painel") conta como vazio. */
@@ -79,9 +80,11 @@ function llms() {
   if (servicos.length) {
     linha("## O que a loja conserta");
     linha("");
+    /* Cada serviço com o link da PRÓPRIA página (0.13.0): quem cita a loja
+       numa resposta cita o endereço que fala só daquilo. */
     for (const s of servicos) {
       const chamada = semHtml(s.chamada || "").trim();
-      linha(`- **${semHtml(s.nome)}**${chamada ? " — " + chamada : ""}`);
+      linha(`- [${semHtml(s.nome)}](${SITE}/consertos/${s.slug}/)${chamada ? ": " + chamada : ""}`);
     }
     linha("");
   }
@@ -96,7 +99,9 @@ function llms() {
   }
 
   /* ------------------------------------------------------------ atendimento */
-  const cidades = txt("loja.atende", "").split("\n").map((c) => semHtml(c).trim()).filter(Boolean);
+  /* A mesma leitura da ficha da loja. Com `split("\n")`, o campo gravado pelo
+     editor (`<p>Caruaru<br>Toritama</p>`) virava UMA cidade: "Caruaru Toritama". */
+  const cidades = cidadesAtendidas();
   if (cidades.length) {
     linha("## Onde atende");
     linha("");
@@ -134,6 +139,8 @@ function llms() {
   linha("## Páginas");
   linha("");
   linha(`- [Site](${SITE}/): serviços, busca e leva, garantia e perguntas frequentes`);
+  linha(`- [Consertos](${SITE}/consertos/): cada serviço com prazo de bancada, garantia e sintomas`);
+  linha(`- [Orçamento](${SITE}/orcamento/): como pedir o orçamento, que é feito pelo WhatsApp`);
   linha(`- [Blog](${SITE}/blog/): o que fazer antes de gastar com o conserto`);
   const posts = Pub.posts(20);
   for (const p of posts) {
