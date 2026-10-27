@@ -1453,3 +1453,88 @@ a.selo-google:hover { border-color: var(--vermelho); }
   .faq__p { padding: .95rem 1rem; font-size: .96rem; }
   .faq__r { padding: 0 1rem 1rem; }
 }
+
+/* ==========================================================================
+   QUEM CONSERTA — a seção do dono na home e a página /sobre/ (0.14.0)
+
+   A foto em pé com um CRACHÁ por cima: nome em Saira, cargo em monoespaçada.
+   É a etiqueta de bancada da marca — a mesma linguagem dos números do topo
+   (dado, não adjetivo). O filete vermelho à esquerda é o mesmo do blockquote:
+   a cor da marca só onde há algo a afirmar.
+
+   A foto fica QUASE natural. Nas fotos de banco o site escurece e dessatura
+   para elas virarem textura; aqui é uma pessoa, e rosto acinzentado lê como
+   foto de documento.
+   ========================================================================== */
+.dono__in {
+  display: grid; gap: clamp(1.8rem, 1rem + 3vw, 3.4rem);
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); align-items: center;
+}
+.dono__foto {
+  position: relative; margin: 0; aspect-ratio: 4 / 5; overflow: hidden;
+  border-radius: var(--raio-g); border: 1px solid var(--linha);
+  background: var(--grafite-3); box-shadow: var(--sombra-alta);
+}
+.dono__foto img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  filter: saturate(.92) contrast(1.04);
+}
+.dono__foto::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, transparent 58%, rgba(11,12,14,.88));
+}
+.dono__cracha {
+  position: absolute; left: 1rem; right: 1rem; bottom: 1rem; z-index: 1;
+  display: grid; gap: .3rem; padding: .85rem 1rem;
+  border-left: 3px solid var(--vermelho); border-radius: var(--raio-p);
+  background: rgba(11,12,14,.74); backdrop-filter: blur(6px);
+}
+.dono__nome {
+  font-family: var(--fonte-titulo); font-weight: var(--peso-black); line-height: 1;
+  font-size: 1.4rem; text-transform: uppercase; letter-spacing: .02em; color: var(--branco);
+}
+.dono__cracha .dado { font-size: var(--t-meta); color: var(--tinta-2); }
+
+.dono__resumo { margin-top: 1.2rem; color: var(--tinta-2); font-size: var(--t-guia); line-height: 1.6; }
+.dono__resumo > * + * { margin-top: .9rem; }
+
+/* A formação: cada curso é uma matéria do blog, e a linha leva até ela. */
+.formacao { margin-top: 1.8rem; }
+.formacao__rot {
+  margin-bottom: .6rem; font-size: var(--t-mini); color: var(--tinta-3);
+  text-transform: uppercase; letter-spacing: .12em;
+}
+.formacao__h { margin: 2.6rem 0 .9rem; font-size: var(--t-h3); text-transform: none; }
+.formacao__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.formacao__lista a {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .3rem 1rem; align-items: baseline;
+  padding: .9rem 1.1rem; border: 1px solid var(--linha); border-radius: var(--raio);
+  background: var(--metal-face); color: var(--tinta); text-decoration: none;
+  transition: border-color var(--transicao), box-shadow var(--transicao);
+}
+.formacao__lista a:hover, .formacao__lista a:focus-visible { border-color: var(--vermelho); box-shadow: var(--brilho); }
+.formacao__data { font-size: var(--t-meta); color: var(--vermelho-alto); white-space: nowrap; }
+.formacao__t { font-weight: var(--peso-medio); }
+
+/* A página: a foto acompanha a leitura do texto longo no desktop. */
+.sobre__in { align-items: start; margin-top: 1.6rem; }
+.sobre__in .dono__foto { position: sticky; top: 6.5rem; }
+.sobre .titulo { font-size: clamp(1.9rem, 1.3rem + 2.4vw, 3.1rem); }
+.sobre .sub { margin-top: .9rem; color: var(--tinta-3); font-size: var(--t-meta); }
+.sobre .artigo__corpo { margin-top: 1.6rem; }
+.sobre .hero__acoes { margin-top: 2.4rem; }
+
+/* As fotos DENTRO da matéria (vêm do editor do painel como <figure>). */
+.artigo__corpo figure { margin: 2.2rem 0; }
+.artigo__corpo img {
+  display: block; width: 100%; height: auto;
+  border-radius: var(--raio); border: 1px solid var(--linha);
+}
+.artigo__corpo figcaption { margin-top: .6rem; font-size: var(--t-meta); color: var(--tinta-3); line-height: 1.5; }
+.artigo__corpo .figura--retrato { max-width: 24rem; margin-inline: auto; }
+
+@media (max-width: 860px) {
+  .dono__in { grid-template-columns: 1fr; }
+  .dono__foto { width: 100%; max-width: 26rem; }
+  .sobre__in .dono__foto { position: relative; top: 0; }
+}

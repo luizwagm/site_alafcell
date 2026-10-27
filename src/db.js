@@ -380,6 +380,21 @@ CREATE TABLE IF NOT EXISTS coletas (
     criado TEXT
   );
 
+  /* ------------------------------------------------------------------------
+     SEMEADURAS — o que o conteudo inicial ja entregou UMA vez (0.14.0)
+
+     A materia que o site traz pronta entra uma vez so. Conferir pelo slug
+     nao basta: se o dono apagar a materia, o slug some, e a entrega seguinte
+     a traria de volta — conteudo apagado que ressuscita sozinho e o defeito
+     que faz o cliente desconfiar do painel inteiro. A marca fica aqui, e nao
+     na config, porque tudo o que esta na config vai para o instantaneo
+     publicado.
+     ------------------------------------------------------------------------ */
+  CREATE TABLE IF NOT EXISTS semeaduras (
+    chave  TEXT PRIMARY KEY,
+    criado TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS avaliacoes (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     autor     TEXT NOT NULL DEFAULT '',

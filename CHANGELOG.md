@@ -4,6 +4,104 @@ Segunda casa = funcionalidade nova. Terceira casa = correção. A primeira não 
 
 ---
 
+## 0.14.0 — 27/10/2026 — O ALAF NO SITE: A BANCADA DO TOPO, QUEM CONSERTA E A MATÉRIA DO CURSO
+
+Pedido: trocar a foto do celular do topo por uma foto real do dono na
+bancada, criar uma seção na home e uma página sobre o dono, e uma matéria
+sobre o curso que ele fez, com as fotos e boa para a busca.
+
+### 1. O celular do topo mostra o Alaf no microscópio
+
+A foto de banco de imagem (`banco/oficina.webp`) saiu. Entrou
+`alaf/bancada-microscopio.webp`, **recortada já na proporção da tela do
+aparelho** (540x1140): o rosto e as mãos no microscópio ficam no terço de
+cima, logo abaixo do alto-falante, e o navegador não baixa a foto original de
+1600 px para mostrar 470. São 69 KB, e continua com `fetchpriority="high"`
+(é a imagem do LCP). O atributo estava repetido na tag e saiu.
+
+### 2. "Quem conserta": seção na home e a página /sobre/
+
+- **Home:** entre "Como funciona" e "Por que confiar". Depois de saber COMO o
+  conserto acontece, a pergunta é QUEM mexe no aparelho, e a garantia logo
+  abaixo vira a palavra de alguém com rosto.
+- **/sobre/:** foto, nome completo, cargo, a história e a formação. A página
+  tem a ficha `Person` do Schema.org, e a ficha da loja (`LocalBusiness`)
+  ganhou o `founder` apontando para ela. Ela está no menu, no rodapé, no
+  sitemap e no `llms.txt`.
+- **O crachá:** o nome em Saira e o cargo em monoespaçada sobre a foto, com o
+  filete vermelho. É a mesma linguagem dos números do topo.
+- **No painel:** tudo se edita na tela nova **Quem conserta**, grupo `dono`.
+- **O que não entrou:** número que eu não tenho. Não há "x anos de
+  experiência" nem "milhares de aparelhos". O nome completo vem do certificado.
+
+**A formação não se digita em lugar nenhum.** Ela é a lista de matérias do
+blog com a etiqueta **Capacitação**. Curso novo, matéria nova com essa
+etiqueta, e a página do dono ganha a linha sozinha. A data aparece só como
+mês e ano, porque a matéria é publicada dias depois do curso.
+
+### 3. A matéria do curso
+
+"Alaf conclui curso avançado de manutenção em celulares Android".
+
+- **Os dados vêm do certificado da foto:** Android intermediário ao avançado,
+  40 horas, de 28/09 a 02/10/2026, LK Cursos em Vitória de Santo Antão (PE),
+  professor Jessé Mello.
+- **Fotos:** quatro no total. A capa é o Alaf diante da parede da LK Cursos.
+  No corpo vão a turma (recortada **sem o "1/5" e sem a lista de @ do
+  story**), o microscópio e o certificado.
+- **Para a busca:**
+  - termos que o cliente digita ("conserto de celular em Caruaru", placa,
+    carga, celular molhado);
+  - `alt` descritivo em cada foto;
+  - links internos para /sobre/ e /consertos/.
+- **O conteúdo do curso não foi inventado.** O texto fala do que esse nível de
+  formação trata (placa, microscópio, solda de precisão) e do que muda para o
+  cliente. Não afirma uma ementa que não conheço.
+
+### 4. Como isso chega ao ar sem apertar o botão do dono
+
+O site lê o **instantâneo publicado**, que tem dois problemas aqui:
+
+- **Os textos novos:** não existem nele. A seção sairia vazia até alguém
+  publicar.
+- **A matéria:** mora no banco, não no código.
+
+Um `publicar()` comum resolveria os dois, mas levaria junto o rascunho do
+dono, inclusive o que ele ainda não quis pôr no ar.
+
+- **A matéria entra uma vez, pelo conteúdo inicial.** A marca vai na tabela
+  nova `semeaduras`, e não na `config`, porque tudo o que está na `config`
+  vai para o instantâneo. **Se o dono apagar a matéria, ela não volta** na
+  entrega seguinte. Uma matéria escrita à mão com o mesmo endereço também não
+  é duplicada.
+- **`entrarNoAr()` usa o `Pub.republicar()`.** Ele parte da última publicação
+  e acrescenta só o texto cuja chave o instantâneo não tem, além da matéria
+  semeada agora. O que já está no ar não muda uma vírgula, e o rascunho fica
+  onde está. Na segunda vez não grava nada.
+- **A demonstração continua semeando numa instalação nova.** Ela só entrava
+  com o blog vazio, e agora ignora a matéria real nessa conta.
+
+### Provas
+
+- **`provar.cjs`:** 374/374, com 27 provas novas.
+  - **A matéria:** nasce, é marcada, e apagada não volta.
+  - **A entrega:** com um instantâneo de 0.13.1 e um rascunho do dono
+    pendente, ela põe no ar os textos e a matéria **sem levar o rascunho**,
+    grava uma publicação só e, na segunda vez, nenhuma.
+  - **As telas:** a seção na ordem certa, o `h1` e a ficha `Person` de
+    /sobre/, o `founder`, as três fotos da matéria e as cinco WebP conferidas
+    pela assinatura.
+- **Sabotagem:** cada prova falha contra o código errado.
+  - Sem `entrarNoAr`, caem 7 provas.
+  - Com `publicar()` no lugar, caem 17.
+  - Sem a marca de semeadura, a entrega quebra no `UNIQUE`.
+- **`rotas.cjs`:** 77/77. O /sobre/ entra no sitemap, e todo endereço do
+  sitemap responde 200.
+- **Na tela:** Chrome, numa cópia do banco local, no desktop e com 390 px.
+  Nenhum erro e nenhuma rolagem lateral.
+
+---
+
 ## 0.13.1 — 15/09/2026 — A DEMONSTRAÇÃO SAI DE VERDADE, E A CÓPIA .projetos SAI DO ÍNDICE
 
 Pedido: reiniciar com `ALAFCELL_DEMO=nao`, retirar a chave Pix e fechar a

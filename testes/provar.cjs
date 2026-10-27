@@ -1559,7 +1559,10 @@ verdade("(a primeira gravou uma só)", pubsDepois === pubsAntes.m + 1);
       { encoding: "utf8", env });
     const D = require("better-sqlite3");
     const db = new D(banco);
-    const posts = db.prepare("SELECT COUNT(*) c FROM posts").get().c;
+    /* Só as matérias de EXEMPLO: a do curso (0.14.0) é conteúdo real e entra
+       com ou sem demonstração. */
+    const posts = db.prepare(`SELECT COUNT(*) c FROM posts
+      WHERE 'post:' || slug NOT IN (SELECT chave FROM semeaduras)`).get().c;
     db.close();
     for (const s of ["", "-wal", "-shm"]) { try { fs.unlinkSync(banco + s); } catch {} }
     return { posts, saida: r.stdout || "", erro: r.status };
@@ -1573,6 +1576,76 @@ verdade("(a primeira gravou uma só)", pubsDepois === pubsAntes.m + 1);
   /* O controle: sem o .env, a mesma chamada semeia — senão a prova de cima
      passaria com o carregador desligado. */
   ok("sem o .env, a mesma chamada semeia (o controle)", [sem.erro, sem.posts], [0, 3]);
+}
+
+/* ==========================================================================
+   0.14.0 — QUEM CONSERTA E A MATÉRIA DO CURSO
+   ========================================================================== */
+grupo("Quem conserta e a matéria do curso (0.14.0)");
+{
+  const SLUG = "alaf-conclui-curso-avancado-de-manutencao-em-celulares-android";
+  const Sobre = require("../src/sobre");
+  const materia = () => Q.um("SELECT * FROM posts WHERE slug = ?", SLUG);
+  verdade("a matéria do curso nasce no banco", materia());
+  verdade("com a etiqueta que a põe na formação", /^Capacita/.test(materia().etiqueta));
+  verdade("e a marca de que já entrou uma vez", Q.um("SELECT 1 FROM semeaduras WHERE chave = ?", "post:" + SLUG));
+
+  /* Apagada pelo dono, NÃO volta na entrega seguinte. */
+  const guardada = materia();
+  Q.roda("DELETE FROM posts WHERE slug = ?", SLUG);
+  Inicial.semear();
+  ok("apagada pelo dono, a próxima entrega não a traz de volta", materia(), undefined);
+
+  /* O site como estava na 0.13.1: publicação sem os textos do dono e sem a
+     matéria, e o dono com um rascunho que ainda não quis publicar. */
+  Q.roda("DELETE FROM semeaduras WHERE chave = ?", "post:" + SLUG);
+  Pub.publicar("ZZ QA");
+  const ult = Q.um("SELECT id, dados FROM publicacao ORDER BY id DESC LIMIT 1");
+  const velho = JSON.parse(ult.dados);
+  for (const k of Object.keys(velho.textos)) if (k.startsWith("dono.")) delete velho.textos[k];
+  velho.posts = velho.posts.filter((x) => x.slug !== SLUG);
+  Q.roda("UPDATE publicacao SET dados = ? WHERE id = ?", JSON.stringify(velho), ult.id);
+  const rascAntes = Q.um("SELECT valor FROM config WHERE chave = 'home.btn1'").valor;
+  ajuste("home.btn1", "ZZ rascunho do dono");
+  const antesDaEntrega = Q.um("SELECT MAX(id) m FROM publicacao").m;
+
+  Inicial.semear();
+  /* Do BANCO, e não do `Pub.atual()`: o cache em memória ainda guarda a publicação
+     de antes da edição acima, e a prova passaria com a entrega desligada. */
+  const noAr = JSON.parse(Q.um("SELECT dados FROM publicacao ORDER BY id DESC LIMIT 1").dados);
+  verdade("a entrega põe no ar os textos novos do dono", noAr.textos["dono.titulo"]);
+  verdade("e a matéria do curso", noAr.posts.some((x) => x.slug === SLUG));
+  verdade("o rascunho do dono NÃO vai junto", noAr.textos["home.btn1"] !== "ZZ rascunho do dono");
+  ok("grava UMA publicação", Q.um("SELECT MAX(id) m FROM publicacao").m, antesDaEntrega + 1);
+  Inicial.semear();
+  ok("rodar de novo não grava outra", Q.um("SELECT MAX(id) m FROM publicacao").m, antesDaEntrega + 1);
+  ok("a matéria nova vem primeiro no blog", Pub.posts()[0].slug, SLUG);
+  ajuste("home.btn1", rascAntes);
+
+  /* As telas */
+  const casa = Pag.home({ headers: {}, url: "/" });
+  verdade("a home tem a seção do dono", casa.includes('id="quem-conserta"'));
+  verdade("entre Como funciona e Por que confiar",
+    casa.indexOf('id="como-funciona"') < casa.indexOf('id="quem-conserta"')
+    && casa.indexOf('id="quem-conserta"') < casa.indexOf('id="garantia"'));
+  verdade("o celular do topo mostra a foto da bancada do Alaf", casa.includes('class="fone__foto" src="/assets/img/alaf/bancada-microscopio.webp"'));
+  verdade("a seção lista a formação, ligando à matéria", casa.includes(`href="/blog/${SLUG}/"`));
+  verdade("e leva à página /sobre/", casa.includes('href="/sobre/"'));
+  const sobre = Sobre.pagina({ headers: {}, url: "/sobre/" });
+  verdade("/sobre/ tem um h1 com o nome curto", /<h1[^>]*>Alaf, o técnico/.test(sobre));
+  verdade("e o nome completo", sobre.includes("José Alaf Silva Soares"));
+  verdade("e a ficha Person que o Google lê", /"@type":"Person"/.test(sobre) && sobre.includes("/sobre/#dono"));
+  verdade("a ficha da loja aponta o fundador", casa.includes('"founder":{"@type":"Person"'));
+  const mat = Blog.materia({ headers: {}, url: "/blog/" + SLUG + "/" }, SLUG);
+  verdade("a matéria abre", mat && mat.includes("LK Cursos"));
+  ok("com as três fotos no corpo", (mat.match(/<figure>|<figure class="figura--retrato">/g) || []).length, 3);
+  verdade("e capa", mat.includes("/assets/img/alaf/curso-lk-cursos.webp"));
+  /* As fotos existem de verdade e são WebP — imagem que falta só aparece na tela. */
+  for (const f of ["bancada-microscopio", "alaf-certificado", "curso-lk-cursos", "curso-turma", "curso-microscopio"]) {
+    const b = fs.readFileSync(path.join(__dirname, "..", "assets", "img", "alaf", f + ".webp"));
+    verdade(`${f}.webp é WebP`, b.slice(0, 4).toString() === "RIFF" && b.slice(8, 12).toString() === "WEBP");
+  }
+  void guardada;
 }
 
 /* Faxina: o que é do dono volta a ser o que era */

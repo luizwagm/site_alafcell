@@ -141,6 +141,8 @@ function llms() {
   linha(`- [Site](${SITE}/): serviços, busca e leva, garantia e perguntas frequentes`);
   linha(`- [Consertos](${SITE}/consertos/): cada serviço com prazo de bancada, garantia e sintomas`);
   linha(`- [Orçamento](${SITE}/orcamento/): como pedir o orçamento, que é feito pelo WhatsApp`);
+  const dono = txt("dono.nome", "");
+  if (dono) linha(`- [Quem conserta](${SITE}/sobre/): ${dono}, ${txt("dono.cargo", "dono da loja").toLowerCase()}, e a formação dele`);
   linha(`- [Blog](${SITE}/blog/): o que fazer antes de gastar com o conserto`);
   const posts = Pub.posts(20);
   for (const p of posts) {

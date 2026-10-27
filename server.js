@@ -35,6 +35,7 @@ const Inst = require("./src/institucional");
 /* A lista de consertos e a página de cada um voltaram na 0.13.0 — SEM preço,
    que continua fora do site por decisão do cliente (0.4.0). */
 const Consertos = require("./src/consertos");
+const Sobre = require("./src/sobre");
 const Orc = require("./src/orcamento");
 /* ==========================================================================
    DESLIGADOS NA 0.4.0 — os arquivos continuam em src/, sem rota nenhuma:
@@ -553,6 +554,12 @@ const servidor = http.createServer(async (req, res) => {
        dia em que a loja voltar. O CHANGELOG lista o que precisa ser religado.
        ==================================================================== */
 
+    /* ---------------------------------------------- quem conserta (0.14.0) */
+    if (p === "/sobre/") {
+      registrar(req, "/sobre/");
+      return responder(res, 200, Sobre.pagina(req));
+    }
+
     /* -------------------------------------------------------------- blog */
     if (partes[0] === "blog") {
       registrar(req, "/blog/");
@@ -704,7 +711,7 @@ const servidor = http.createServer(async (req, res) => {
         urls.push(["/", doSite], ["/consertos/", doSite], ["/orcamento/", doSite]);
         /* Serviço fora do instantâneo não entra: rascunho e desativado dão 404. */
         for (const s of Pub.servicos()) urls.push([`/consertos/${s.slug}/`, doSite]);
-        urls.push(["/blog/", doSite], ["/privacidade/", doSite]);
+        urls.push(["/sobre/", doSite], ["/blog/", doSite], ["/privacidade/", doSite]);
         /* Matéria não publicada não entra no sitemap: o Google iria buscá-la
            e receberia 404. */
         for (const b of Pub.posts()) urls.push([`/blog/${b.slug}/`, b.data || doSite]);

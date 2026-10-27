@@ -24,6 +24,7 @@ const L = require("./layout");
    resultado da busca. */
 const { semHtml, emLinhas } = require("./html-seguro");
 const Orc = require("./orcamento");
+const Sobre = require("./sobre");
 const { esc, engrenagem, zap, linhas } = L;
 
 /* ==========================================================================
@@ -218,9 +219,15 @@ function home(req) {
                primeira tela — o que o buscador mede como LCP. Sem a marca, o
                navegador a trata como qualquer outra e ela entra na fila atras
                do CSS e das fontes. (Sem crases: este comentario vive dentro de
-               um template literal, e a crase fecharia a string.) -->
-          <img class="fone__foto" fetchpriority="high" src="/assets/img/banco/oficina.webp" alt=""
-               width="1200" height="800" fetchpriority="high" decoding="async">
+               um template literal, e a crase fecharia a string.)
+
+               0.14.0: a foto de banco de imagem saiu, e entrou o Alaf no
+               microscopio. Recortada JA na proporcao da tela (540x1140, perto
+               de 1:2,1): o rosto cai no terco de cima, logo abaixo do alto-
+               falante, e o navegador nao baixa os 1600 px da foto original
+               para mostrar 470. -->
+          <img class="fone__foto" src="/assets/img/alaf/bancada-microscopio.webp" alt=""
+               width="540" height="1140" fetchpriority="high" decoding="async">
           <span class="fone__luz"></span>
         </div>
         <span class="fone__alto"></span>
@@ -611,7 +618,8 @@ function home(req) {
     /* O FAQ vem depois da garantia e ANTES das recomendações: quem ainda tem
        dúvida operacional não é convencido por depoimento — primeiro se
        responde a pergunta, depois se mostra quem já passou por aqui. */
-    corpo: hero + busca + secServicos + secColeta + secEtapas + secGarantia
+    /* "Quem conserta" (0.14.0) entre o COMO e o POR QUE CONFIAR: ver src/sobre.js. */
+    corpo: hero + busca + secServicos + secColeta + secEtapas + Sobre.secao() + secGarantia
       + secFaq + secGoogle + secBlog + secFim,
   });
 }
@@ -646,6 +654,10 @@ function jsonldLoja(perguntas = []) {
   };
   const tel = txt("marca.telefone", "");
   if (tel) ficha.telephone = tel;
+  /* O dono, pelo mesmo @id da página /sobre/ (0.14.0): o buscador liga a loja
+     à pessoa, e a pessoa à formação que a página lista. */
+  const dono = txt("dono.nome", "");
+  if (dono) ficha.founder = { "@type": "Person", "@id": `${SITE}/sobre/#dono`, name: dono, url: `${SITE}/sobre/` };
   if (preenchido) {
     ficha.address = {
       "@type": "PostalAddress",

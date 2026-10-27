@@ -140,6 +140,7 @@ function cabecalho(atual = "", req = null) {
       ${item("/consertos/", "Consertos", "consertos")}
       ${item("/orcamento/", "Orçamento", "orcamento")}
       ${item("/#busca-e-leva", "Busca e leva", "coleta")}
+      ${item("/sobre/", "Quem conserta", "sobre")}
       ${item("/blog/", "Blog", "blog")}
       ${item("/#contato", "Contato", "contato")}
     </nav>
@@ -163,6 +164,7 @@ function cabecalho(atual = "", req = null) {
     <a href="/orcamento/">Orçamento</a>
     <a href="/#busca-e-leva">Busca e leva</a>
     <a href="/#como-funciona">Como funciona</a>
+    <a href="/sobre/">Quem conserta</a>
     <a href="/blog/">Blog</a>
     <a href="/#contato">Contato</a>
     <a class="btn btn--acao btn--largo" href="${zap("Olá! Vim pelo site e queria um orçamento.")}"
@@ -220,6 +222,7 @@ function rodape() {
           <li><a href="/#busca-e-leva">Busca e leva</a></li>
           <li><a href="/#como-funciona">Como funciona</a></li>
           <li><a href="/#garantia">Garantia</a></li>
+          <li><a href="/sobre/">Quem conserta</a></li>
           <li><a href="/blog/">Blog</a></li>
           <li><a href="/#contato">Contato</a></li>
           <li><a href="/privacidade/">Privacidade</a></li>

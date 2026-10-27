@@ -103,6 +103,53 @@ function textos() {
     + "sabendo a diferença de preço e de garantia, antes de decidir.",
     "confianca", "Motivo 3 — texto", "area", 11);
 
+  /* ------------------------------------------------------ quem conserta
+     A seção do dono na home e a página /sobre/ (0.14.0).
+
+     O nome completo está no certificado do curso; o resto é o que a loja já
+     promete em outras telas (diagnóstico na frente do cliente, orçamento
+     antes de abrir). NADA de "x anos de experiência" ou "milhares de
+     aparelhos": não tenho esse número, e número inventado na página do dono é
+     o primeiro que um concorrente contesta. Quando o dono souber, escreve. */
+  T("dono.rotulo", "Quem conserta", "dono", "Rótulo pequeno", "texto", 1);
+  T("dono.titulo", "O nome na fachada é o mesmo <em>na bancada</em>", "dono",
+    "Título da seção na página inicial", "texto", 2, "Pode usar <em> para destacar.");
+  T("dono.apelido", "Alaf", "dono", "Como o dono é chamado", "texto", 3,
+    "O nome curto, que aparece nos títulos e botões.");
+  T("dono.nome", "José Alaf Silva Soares", "dono", "Nome completo", "texto", 4,
+    "Aparece na página /sobre/ e na ficha que o Google lê.");
+  T("dono.cargo", "Fundador e técnico responsável", "dono", "Cargo", "texto", 5);
+  T("dono.resumo", "<p>A Alafcell leva o nome do Alaf porque é ele quem responde por cada "
+    + "aparelho que entra na loja. É ele quem está à frente da bancada e quem explica, com o "
+    + "celular na sua frente, o que precisa ser feito antes de qualquer peça ser trocada.</p>"
+    + "<p>Celular muda todo ano, e técnico que para de estudar fica para trás do aparelho que "
+    + "chega no balcão. Por isso a formação não para.</p>",
+    "dono", "Texto da seção na página inicial", "area", 6);
+  T("dono.historia", "<p>A Alafcell Assistec tem o nome do dono por um motivo simples: quem "
+    + "responde pelo seu aparelho é o Alaf. É ele quem está à frente da bancada da loja, no São "
+    + "Francisco, em Caruaru: recebe o celular, faz o diagnóstico e explica, com o aparelho na "
+    + "sua frente, o que precisa ser feito e quanto custa. O aparelho só é aberto depois do seu ok.</p>"
+    + "<h2>Conserto de celular é trabalho de quem não para de estudar</h2>"
+    + "<p>Cada geração de celular chega com placa mais compacta, componente menor e tela mais "
+    + "cara. O que resolvia um aparelho de três anos atrás nem sempre resolve o de hoje. Por isso "
+    + "a formação do Alaf é contínua, e a mais recente foi o curso de <strong>Android do nível "
+    + "intermediário ao avançado</strong>, com 40 horas de carga horária, na LK Cursos, em "
+    + "Vitória de Santo Antão (PE), com o professor Jessé Mello.</p>"
+    + "<h2>O que isso muda para você</h2>"
+    + "<ul><li><strong>Diagnóstico mais preciso.</strong> Achar a causa antes de trocar peça "
+    + "evita pagar pelo que não precisava.</li>"
+    + "<li><strong>Mais defeitos avaliados aqui mesmo, em Caruaru</strong>, inclusive os de "
+    + "placa, carga e energia.</li>"
+    + "<li><strong>A mesma conversa franca de sempre.</strong> Se o conserto não compensar, "
+    + "a gente diz.</li></ul>",
+    "dono", "Texto da página /sobre/", "area", 7,
+    "A história completa. Pode usar subtítulos e listas.");
+  T("dono.foto", "/assets/img/alaf/alaf-certificado.webp", "dono", "Foto do dono", "imagem", 8,
+    "Foto em pé (proporção 4x5). Aparece na página inicial e em /sobre/.");
+  T("dono.foto_alt", "Alaf, dono da Alafcell Assistec, segurando o certificado do curso de "
+    + "Android intermediário ao avançado da LK Cursos", "dono", "Descrição da foto", "area", 9,
+    "Lido por quem usa leitor de tela e mostrado se a imagem não carregar.");
+
   /* ---------------------------------------------------------------- blog */
   T("blog.rotulo", "Blog", "blog", "Rótulo pequeno", "texto", 1);
   T("blog.titulo", "Antes de gastar, <em>leia</em>", "blog", "Título na página inicial",
@@ -528,6 +575,124 @@ function palavrasDeBusca() {
   for (const [chave, antigo, novo] of melhorias) atualizarSeIntocado(chave, antigo, novo);
 }
 
+/* ==========================================================================
+   MATÉRIAS QUE O SITE TRAZ PRONTAS (0.14.0)
+
+   Diferente da demonstração (src/demo.js), que é exemplo e sai com
+   ALAFCELL_DEMO=nao: isto é conteúdo REAL da loja, escrito a partir das fotos
+   e do certificado que o dono mandou.
+
+   Entra UMA vez. A marca em `semeaduras` impede que uma matéria apagada pelo
+   dono volte na entrega seguinte, e o `slug` impede de duplicar uma que ele
+   já tenha escrito à mão com o mesmo endereço.
+
+   A etiqueta "Capacitação" não é enfeite: é por ela que a matéria aparece na
+   lista de formação da página /sobre/. Curso novo, matéria nova com a mesma
+   etiqueta, e a página do dono se atualiza sozinha.
+   ========================================================================== */
+const MATERIAS = [{
+  slug: "alaf-conclui-curso-avancado-de-manutencao-em-celulares-android",
+  titulo: "Alaf conclui curso avançado de manutenção em celulares Android",
+  resumo: "O dono da Alafcell concluiu 40 horas de formação em Android, do intermediário ao "
+    + "avançado, na LK Cursos. Para quem precisa de conserto de celular em Caruaru, isso "
+    + "significa diagnóstico mais preciso.",
+  capa: "/assets/img/alaf/curso-lk-cursos.webp",
+  etiqueta: "Capacitação",
+  autor: "Alafcell Assistec",
+  corpo: [
+    "<p>Entre 28 de setembro e 2 de outubro de 2026, o <strong>Alaf</strong>, dono e técnico "
+    + "responsável da <strong>Alafcell Assistec</strong>, esteve em Vitória de Santo Antão (PE) "
+    + "para o <strong>curso de Android do nível intermediário ao avançado</strong> da "
+    + "<strong>LK Cursos</strong>, centro de treinamento em smartphones. Foram 40 horas de carga "
+    + "horária, com aulas do professor <strong>Jessé Mello</strong>, e o certificado veio no "
+    + "último dia.</p>",
+    "<figure><img src=\"/assets/img/alaf/curso-turma.webp\" width=\"900\" height=\"750\" "
+    + "loading=\"lazy\" alt=\"Turma do curso de manutenção de celulares Android na sala de "
+    + "bancadas da LK Cursos, em Vitória de Santo Antão\"><figcaption>A turma do curso, na sala "
+    + "de bancadas da LK Cursos.</figcaption></figure>",
+    "<h2>Por que um técnico de celular volta para a sala de aula</h2>",
+    "<p>Celular muda todo ano. A placa fica mais compacta, os componentes ficam menores, e o que "
+    + "resolvia um aparelho de três anos atrás nem sempre resolve o de hoje. Na assistência "
+    + "técnica, quem para de estudar passa a trocar peça no lugar de encontrar o defeito, e quem "
+    + "paga essa diferença é o cliente.</p>",
+    "<p>Uma formação do intermediário ao avançado vai além da troca de tela e de bateria. É a "
+    + "parte do conserto que acontece na placa, com microscópio, solda de precisão e muita "
+    + "paciência: o tipo de defeito que costuma ganhar o rótulo de \"não tem conserto\" no "
+    + "primeiro balcão.</p>",
+    "<figure><img src=\"/assets/img/alaf/curso-microscopio.webp\" width=\"1000\" height=\"800\" "
+    + "loading=\"lazy\" alt=\"Alaf, técnico da Alafcell, trabalhando em placa de celular no "
+    + "microscópio durante o curso\"><figcaption>Bancada de microscópio: é ali que se trabalha "
+    + "no que o olho não alcança.</figcaption></figure>",
+    "<h2>O que muda para quem conserta o celular na Alafcell</h2>",
+    "<ul><li><strong>Diagnóstico mais preciso.</strong> Achar a causa antes de trocar qualquer "
+    + "peça evita pagar pelo que não precisava.</li>"
+    + "<li><strong>Mais defeitos avaliados aqui mesmo, em Caruaru</strong>, inclusive os de "
+    + "placa, carga e energia em celulares Android.</li>"
+    + "<li><strong>A mesma transparência de sempre.</strong> O diagnóstico é feito na sua frente, "
+    + "o orçamento vem antes de abrir o aparelho e a garantia sai por escrito. Se o conserto não "
+    + "compensar, a gente diz.</li></ul>",
+    "<figure class=\"figura--retrato\"><img src=\"/assets/img/alaf/alaf-certificado.webp\" "
+    + "width=\"880\" height=\"1100\" loading=\"lazy\" alt=\"Alaf segurando o certificado do curso "
+    + "de Android intermediário ao avançado da LK Cursos\"><figcaption>Certificado de 40 horas, "
+    + "emitido em 2 de outubro de 2026.</figcaption></figure>",
+    "<h2>Seu celular está com defeito?</h2>",
+    "<p>Tela quebrada, bateria viciada, aparelho que não carrega, celular molhado ou que não "
+    + "liga: conta o que houve pelo WhatsApp. A loja fica no São Francisco, em Caruaru, e se for "
+    + "mais fácil, a gente busca o aparelho onde você estiver. Quer saber mais sobre quem vai "
+    + "cuidar do seu celular? <a href=\"/sobre/\">Conheça o Alaf</a> ou veja "
+    + "<a href=\"/consertos/\">os consertos que a gente faz</a>.</p>",
+  ].join("\n"),
+}];
+
+function materias() {
+  const novas = [];
+  for (const m of MATERIAS) {
+    const marca = "post:" + m.slug;
+    if (Q.um("SELECT 1 FROM semeaduras WHERE chave = ?", marca)) continue;
+    if (!Q.um("SELECT 1 FROM posts WHERE slug = ?", m.slug)) {
+      Q.roda(`INSERT INTO posts (slug, titulo, resumo, corpo, capa, etiqueta, autor)
+              VALUES (?,?,?,?,?,?,?)`,
+        m.slug, m.titulo, m.resumo, m.corpo, m.capa, m.etiqueta, m.autor);
+      novas.push(m.slug);
+    }
+    Q.roda("INSERT INTO semeaduras (chave, criado) VALUES (?,?)", marca, new Date().toISOString());
+  }
+  return novas;
+}
+
+/* ==========================================================================
+   O QUE É NOVO ENTRA NO AR SEM APERTAR O BOTÃO DO DONO
+
+   O site lê o instantâneo publicado. Um texto que nasceu nesta versão não
+   existe nele, e a seção nova apareceria vazia até alguém publicar. E um
+   `publicar()` comum levaria junto o rascunho do dono, o que ele está
+   escrevendo e ainda não quis pôr no ar.
+
+   `republicar` parte da ÚLTIMA publicação e acrescenta só:
+     · o texto cuja chave o instantâneo NÃO tem (nunca foi publicada, então
+       não há versão do dono para desfazer);
+     · a matéria semeada AGORA.
+   O que já está no ar não muda uma vírgula. Sem publicação nenhuma, não faz
+   nada: aí o site já lê o rascunho direto.
+   ========================================================================== */
+function entrarNoAr(novas) {
+  const Pub = require("./publicado");
+  Pub.republicar((d) => {
+    d.textos = d.textos || {};
+    for (const c of Q.todos("SELECT chave, valor FROM config"))
+      if (!(c.chave in d.textos)) d.textos[c.chave] = c.valor;
+    d.posts = d.posts || [];
+    let entrou = false;
+    for (const slug of novas) {
+      if (d.posts.some((p) => p.slug === slug)) continue;
+      const p = Q.um("SELECT * FROM posts WHERE slug = ? AND publicado = 1", slug);
+      if (p) { d.posts.push(p); entrou = true; }
+    }
+    /* A mesma ordem do `montar()`: mais nova primeiro. */
+    if (entrou) d.posts.sort((a, b) => String(b.data).localeCompare(String(a.data)) || b.id - a.id);
+  }, "conteúdo inicial");
+}
+
 function semear() {
   textos();
   cadastroDaLoja();
@@ -536,6 +701,7 @@ function semear() {
   aparelhos();
   avaliacoesExemplo();
   faq();
+  entrarNoAr(materias());
 }
 
 module.exports = { semear };

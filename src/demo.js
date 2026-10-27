@@ -232,7 +232,11 @@ const POSTS = [
 ];
 
 function posts() {
-  if (Q.um("SELECT COUNT(*) c FROM posts").c) return;
+  /* A matéria REAL que o conteúdo inicial traz (0.14.0) não conta: ela entra
+     antes desta função, e sem a exceção uma instalação nova nunca mais
+     receberia as matérias de exemplo. */
+  if (Q.um(`SELECT COUNT(*) c FROM posts
+             WHERE 'post:' || slug NOT IN (SELECT chave FROM semeaduras)`).c) return;
   const ins = Q.db.prepare(
     `INSERT INTO posts (slug, titulo, resumo, corpo, etiqueta, autor, data)
      VALUES (?,?,?,?,?,?, date('now', '-' || ? || ' days'))`);
